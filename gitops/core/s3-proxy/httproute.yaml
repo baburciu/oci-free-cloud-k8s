@@ -4,8 +4,8 @@ metadata:
   name: s3-proxy
 spec:
   parentRefs:
-    - name: contour-gateway
-      namespace: contour
+    - name: envoy
+      namespace: envoy-gateway
   hostnames:
     - "s3.nce.wtf"
   rules:

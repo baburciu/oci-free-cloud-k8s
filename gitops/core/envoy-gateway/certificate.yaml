@@ -1,11 +1,11 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: wildcard-nce-wtf
+  name: wildcard-delaleu-systems
 spec:
   dnsNames:
-    - "*.nce.wtf"
+    - "*.delaleu.systems"
   issuerRef:
     name: letsencrypt
     kind: ClusterIssuer
-  secretName: wildcard-nce-wtf-tls-cert
+  secretName: wildcard-delaleu-systems-tls-cert

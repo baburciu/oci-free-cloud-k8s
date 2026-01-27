@@ -7,7 +7,7 @@ spec:
     - name: envoy
       namespace: envoy-gateway
   hostnames:
-    - "storage.nce.wtf"
+    - "storage.delaleu.systems"
   rules:
     - matches:
         - path:

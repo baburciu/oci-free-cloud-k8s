@@ -9,6 +9,11 @@ resource "random_password" "webhook_secret" {
 
 data "oci_kms_vaults" "existing_vault" {
   compartment_id = var.compartment_id
+
+  filter {
+    name   = "display_name"
+    values = ["k8s-vault"]
+  }
 }
 
 data "oci_kms_keys" "existing_key" {
@@ -16,7 +21,7 @@ data "oci_kms_keys" "existing_key" {
   management_endpoint = data.oci_kms_vaults.existing_vault.vaults[0].management_endpoint
 }
 
-resource "oci_vault_secret" "test_secret" {
+resource "oci_vault_secret" "github_flux_webhook_token" {
   #Required
   compartment_id = var.compartment_id
   key_id         = data.oci_kms_keys.existing_key.keys[0].id

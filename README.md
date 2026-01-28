@@ -103,21 +103,30 @@ Refer to my [backend config](./terraform/infra/_terraform.tf) for the terraform 
 
 ## 🏗️ Terraform Layout
 * The infrastructure (everything to an usable k8s-api endpoint) is managed by
-terraform in [infra](terraform/infra/)
-* The k8s-modules (OCI specific config for secrets etc.) are managed by terraform in [config](terraform/config/)
-* The k8s apps/config is done with flux; see below
+terraform in [`infra`](terraform/infra/)
+* The k8s-modules (OCI specific config for secrets etc.) are managed by terraform in [`config`](terraform/config/)
+* The k8s apps/config is done with FluxCD; see below
 
-These components are independent from each other, but obv. the infra should
-be created first.
+These components are independent from each other, but obv. the [`infra`](terraform/infra/) should be created first.
 
 For the config part, you need to add a private `*.tfvars` file:
+```hcl
+# terraform/infra/infra.auto.tfvars
+compartment_id = "ocid1.tenancy.oc1..aa"
 ```
-compartment_id   = "ocid1.tenancy.zzz"
-... # this list is currently not complete; there's more to add
-```
+```hcl
+# terraform/config/config.auto.tfvars
+compartment_id = "ocid1.tenancy.oc1..aa"
 
-Running the `config` section you need more variables, which either get output
-by the `infra`-run or have to be extracted from the webui.
+gh_token = "github_pat_aa"
+
+github_app_id = "2748318"
+
+github_app_installation_id = "106655669"
+
+# from 'awk '{printf "%s%s", (NR>1?"\\n":""), $0} END {printf ""}' private-key.pem' (downloaded from GitHub App)
+github_app_pem = "-----BEGIN RSA PRIVATE KEY-----\nM"
+```
 
 > [!TIP]
 > During the initial provisioning the terraform run of `config` might fail,
@@ -134,33 +143,50 @@ For a more regulated access, see the Teleport section below.
 The terraform resources in the [config](./terraform/config) folder will rely on the kubeconfig.
 
 ## FluxCD
-Most resources and core components of the k8s cluster are provisioned with fluxcd.
-Therefore we need a Github Personal acccess Token (`pat` - fine grained) in your repo.
-```
-# github permission scope for the token:
-contents - read, write
+Most resources and core components of the k8s cluster are provisioned with FluxCD.
+Therefore we need a GitHub Personal Acccess Token (PAT - fine grained) in for this repo, with these permissions
+```console
+contents        - read, write
 commit statuses - read, write
-webhooks - read, write
+webhooks        - read, write
 ```
 
-* Place this token in a private tfvars. This is used to
-generate the fluxcd webhook url, which triggers fluxcd reconciliation after each
-commit
+* Place this token in a [private tfvars of `config`](terraform/config/config.auto.tfvars). This is used to generate the fluxcd webhook url, which triggers fluxcd reconciliation after each commit
 * Place this token in the oci vault (`github-fluxcd-token`). This allows fluxcd
 to annotate the github commit status, depending on the state of the `Kustomization`.
 
-### Fluxcd Operator
-Migrating from the `flux bootstrap` method to the flux-operator might be tricky.
-I lost most installed apps during my upgrade, because i misconfigured the
-`FluxInstace.path` (this could've mitigated by setting `prune: false` on the KS).
-Destroying the old Bootstrap resource during the TF apply, lead
-to the removal of the fluxcd crds like `GitRepo, HelmRelease` etc
-(had the remove the finalizers of the crds
-to allow removal). This didn't impact my already deployed CRs though.
-The Flux Operator takes care of reinstalling everything.
+### Flux Operator
+Flux Operator and its `FluxInstace` CR is instantiated from [Terraform](terraform/config/modules/fluxcd/flux.tf).
 
-I've setup a Githup App and mostly followed the official guide,
-this was pretty straightforward.
+I've setup a GitHub App following the [official guides](https://fluxcd.io/blog/2025/04/flux-operator-github-app-bootstrap/#github-app-docs), then added these permissions
+```console
+contents        - read, write
+commit statuses - read, write
+webhooks        - read, write
+```
+and installed the App on this repo. <br/>
+![GitHub App permissions](docs/github-app-permissions.png)
+
+## Deployment
+
+### OCI Vault
+
+Vault secrets are:
+
+| Vault Secret Name | Created by | Purpose |
+|---|---|---|
+| `github-flux-webhook-token` | Terraform ([webhook.tf](terraform/config/modules/fluxcd/webhook.tf))  | Flux webhook validation |
+| `github-fluxcd-token` | Manual | GitHub PAT for Flux notifications |
+| `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
+| `GITHUB_DEX_CLIENT_ID` | Manual | GitHub OAuth App Client ID |
+| `GITHUB_DEX_CLIENT_SECRET` | Manual | GitHub OAuth App Client Secret |
+| `dex-grafana-client` | Manual | Dex→Grafana OIDC client secret |
+| `dex-s3-proxy-client-secret` | Manual | Dex→S3-proxy OIDC client secret |
+| `dex-envoy-client-secret` | Manual | Dex→Envoy Gateway OIDC client secret |
+| `cloudflare-api-token` | Manual | Cloudflare API token for external-dns |
+| `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
+| `s3-proxy-user-secret_key` | Manual | OCI S3-compatible secret key |
+| `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |
 
 #### Development
 Switching to a feature/dev branch is rather simple, just modify the

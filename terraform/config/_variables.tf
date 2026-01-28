@@ -10,26 +10,6 @@ variable "region" {
   default = "eu-frankfurt-1"
 }
 
-variable "public_subnet_id" {
-  type        = string
-  description = "The public subnet's OCID"
-}
-
-variable "node_pool_id" {
-  description = "The OCID of the Node Pool where the compute instances reside"
-  type        = string
-}
-
-variable "vault_id" {
-  description = "OCI Vault OIDC"
-  type        = string
-}
-
-variable "tenancy_id" {
-  description = "Tenancy OCID"
-  type        = string
-}
-
 variable "gh_token" {
   description = "Github PAT for FluxCD"
   type        = string

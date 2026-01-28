@@ -2,8 +2,6 @@ module "externalsecrets" {
   source = "./modules/external-secrets"
 
   compartment_id = var.compartment_id
-  tenancy_id     = var.tenancy_id
-  vault_id       = var.vault_id
 
   depends_on = [
     module.fluxcd

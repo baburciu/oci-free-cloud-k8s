@@ -17,3 +17,15 @@ output "node_pool_id" {
 output "kubernetes_version" {
   value = var.kubernetes_version
 }
+
+output "vault_id" {
+  value = oci_kms_vault.main.id
+}
+
+output "kms_key_id" {
+  value = oci_kms_key.main.id
+}
+
+output "kms_management_endpoint" {
+  value = oci_kms_vault.main.management_endpoint
+}

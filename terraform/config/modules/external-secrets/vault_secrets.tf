@@ -1,3 +1,12 @@
+data "oci_kms_vaults" "existing_vault" {
+  compartment_id = var.compartment_id
+
+  filter {
+    name   = "display_name"
+    values = ["k8s-vault"]
+  }
+}
+
 resource "kubectl_manifest" "external_secrets_namespace" {
   yaml_body = <<YAML
 apiVersion: v1
@@ -30,11 +39,11 @@ metadata:
 spec:
   provider:
     oracle:
-      vault: ${var.vault_id}
+      vault: ${data.oci_kms_vaults.existing_vault.vaults[0].id}
       region: eu-frankfurt-1
       auth:
         user: ${oci_identity_user.external_secrets.id}
-        tenancy: ${var.tenancy_id}
+        tenancy: ${var.compartment_id}
         principalType: UserPrincipal
         secretRef:
           privatekey:

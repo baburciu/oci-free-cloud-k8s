@@ -13,4 +13,6 @@ resource "oci_kms_key" "main" {
     algorithm = "AES"
     length    = 32
   }
+
+  depends_on = [ oci_kms_vault.main ]
 }

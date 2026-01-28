@@ -58,7 +58,7 @@ spec:
             bucket:
               name: tourenbuch
               region: eu-frankfurt-1
-              s3Endpoint: https://frrwy4uskhkj.compat.objectstorage.eu-frankfurt-1.oci.customer-oci.com
+              s3Endpoint: https://fryjvxushf6x.compat.objectstorage.eu-frankfurt-1.oci.customer-oci.com
               credentials:
                 accessKey:
                   env: AWS_ACCESS_KEY_ID

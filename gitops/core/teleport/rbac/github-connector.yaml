@@ -8,9 +8,9 @@ spec:
   client_secret: "secret://teleport-github-connector/teleport-github-client-secret"
   display: GitHub
   endpoint_url: ""
-  redirect_url: https://teleport.delaleu.systems/v1/webapi/github/callback
+  redirect_url: https://teleport.delaleusystems.com/v1/webapi/github/callback
   teams_to_roles:
-    - organization: delaleu-systems-acme
+    - organization: delaleusystems-com-acme
       roles:
         - editor
         - admin

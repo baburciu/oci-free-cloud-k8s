@@ -39,7 +39,7 @@ resource "github_repository_webhook" "flux_webhook" {
   repository = data.github_repository.oci.name
 
   configuration {
-    url          = "https://flux-webhook.delaleu.systems/hook/${sha256(format("%s%s%s", random_password.webhook_secret.result, "github-receiver", "flux-system"))}"
+    url          = "https://flux-webhook.delaleusystems.com/hook/${sha256(format("%s%s%s", random_password.webhook_secret.result, "github-receiver", "flux-system"))}"
     content_type = "json"
     secret       = random_password.webhook_secret.result
     insecure_ssl = false

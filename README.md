@@ -136,7 +136,7 @@ github_app_pem = "-----BEGIN RSA PRIVATE KEY-----\nM"
 
 ## Kubernets Access - kubeconfig
 After running terraform in the [infra](./terraform/infra) folder, a kubeconfig file
-should be created in the terraform folder called `.kube.config`.
+will be created as `terraform/.kube.config`.
 This can be used to access the cluster.
 For a more regulated access, see the Teleport section below.
 
@@ -219,13 +219,13 @@ kubernetes.
 ❯ k --kubeconfig ~/.kube/oci.kubeconfig exec -n teleport -ti deployment/teleport-cluster-auth -- tctl users reset nce
 
 # login to teleport
-❯ tsh login --proxy teleport.delaleu.systems:443 --auth=local --user baburciu teleport.delaleu.systems
+❯ tsh login --proxy teleport.delaleusystems.com:443 --auth=local --user baburciu teleport.delaleusystems.com
 ```
 
 ### Login via Github
 There's no user management in teleport, so no reset, or 2FA setup is needed.
 ```
-❯ tsh login --proxy teleport.delaleu.systems:443 --auth=github-acme --user baburciu teleport.delaleu.systems
+❯ tsh login --proxy teleport.delaleusystems.com:443 --auth=github-acme --user baburciu teleport.delaleusystems.com
 
 # login to the k8s cluster
 ❯ tsh kube login oci

@@ -7,7 +7,7 @@ spec:
     - name: envoy
       namespace: envoy-gateway
   hostnames:
-    - "prometheus.delaleu.systems"
+    - "prometheus.delaleusystems.com"
   rules:
     - matches:
         - path:

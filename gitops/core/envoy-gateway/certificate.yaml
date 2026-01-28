@@ -1,11 +1,11 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: wildcard-delaleu-systems
+  name: wildcard-delaleusystems-com
 spec:
   dnsNames:
-    - "*.delaleu.systems"
+    - "*.delaleusystems.com"
   issuerRef:
     name: letsencrypt
     kind: ClusterIssuer
-  secretName: wildcard-delaleu-systems-tls-cert
+  secretName: wildcard-delaleusystems-com-tls-cert

@@ -7,7 +7,7 @@ spec:
     - name: envoy
       namespace: envoy-gateway
   hostnames:
-    - "s3.delaleu.systems"
+    - "s3.delaleusystems.com"
   rules:
     - matches:
         - path:

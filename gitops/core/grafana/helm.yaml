@@ -29,8 +29,8 @@ spec:
     grafana.ini:
       app_mode: production
       server:
-        domain: monitoring.delaleu.systems
-        root_url: https://monitoring.delaleu.systems
+        domain: monitoring.delaleusystems.com
+        root_url: https://monitoring.delaleusystems.com
 
       users:
         allow_sign_up: false
@@ -48,10 +48,10 @@ spec:
         ;empty_scopes: false
         email_attribute_path: email
         ;id_token_attribute_name:
-        auth_url: https://login.delaleu.systems/dex/auth
-        token_url: https://login.delaleu.systems/dex/token
-        api_url: https://login.delaleu.systems/dex/userinfo
-        role_attribute_path: contains(groups[*], 'delaleu-systems-acme:admin') && 'Admin' || 'Viewer'
+        auth_url: https://login.delaleusystems.com/dex/auth
+        token_url: https://login.delaleusystems.com/dex/token
+        api_url: https://login.delaleusystems.com/dex/userinfo
+        role_attribute_path: contains(groups[*], 'delaleusystems-com-acme:admin') && 'Admin' || 'Viewer'
 
     extraSecretMounts:
       - name: dex-grafana-client

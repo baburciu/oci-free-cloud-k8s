@@ -1,25 +1,27 @@
-apiVersion: externaldns.k8s.io/v1alpha1
-kind: DNSEndpoint
-metadata:
-  name: home-delaleu-systems
-  namespace: external-dns
-spec:
-  endpoints:
-    - dnsName: home.delaleu.systems
-      recordTTL: 300
-      recordType: A
-      targets:
-        - 192.168.1.221
----
-apiVersion: externaldns.k8s.io/v1alpha1
-kind: DNSEndpoint
-metadata:
-  name: wildcard-home-delaleu-systems
-  namespace: external-dns
-spec:
-  endpoints:
-    - dnsName: "*.home.delaleu.systems"
-      recordTTL: 300
-      recordType: A
-      targets:
-        - 192.168.1.221
+# create public DNS records pointing to a private IP so when on home network,
+# you can access home.delaleusystems.com directly via the LAN IP
+# apiVersion: externaldns.k8s.io/v1alpha1
+# kind: DNSEndpoint
+# metadata:
+#   name: home-delaleusystems-com
+#   namespace: external-dns
+# spec:
+#   endpoints:
+#     - dnsName: home.delaleusystems.com
+#       recordTTL: 300
+#       recordType: A
+#       targets:
+#         - 192.168.1.221
+# ---
+# apiVersion: externaldns.k8s.io/v1alpha1
+# kind: DNSEndpoint
+# metadata:
+#   name: wildcard-home-delaleusystems-com
+#   namespace: external-dns
+# spec:
+#   endpoints:
+#     - dnsName: "*.home.delaleusystems.com"
+#       recordTTL: 300
+#       recordType: A
+#       targets:
+#         - 192.168.1.221

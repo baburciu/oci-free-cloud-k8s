@@ -18,7 +18,7 @@ spec:
   gatewayClassName: envoy
   listeners:
     - name: https
-      hostname: "*.delaleu.systems"
+      hostname: "*.delaleusystems.com"
       protocol: HTTPS
       port: 443
       allowedRoutes:
@@ -28,4 +28,4 @@ spec:
         mode: Terminate
         certificateRefs:
           - kind: Secret
-            name: wildcard-delaleu-systems-tls-cert
+            name: wildcard-delaleusystems-com-tls-cert

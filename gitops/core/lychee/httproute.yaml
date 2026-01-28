@@ -7,7 +7,7 @@ spec:
     - name: contour-gateway
       namespace: contour
   hostnames:
-    - "img.delaleu.systems"
+    - "img.delaleusystems.com"
   rules:
     - matches:
         - path:

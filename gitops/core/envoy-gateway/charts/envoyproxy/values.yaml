@@ -1,0 +1,6 @@
+# Default values for envoyproxy.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# This is for setting the OCI Network Security Group for the Load Balancer
+ociNetworkSecurityGroup: ocid1.networksecuritygroup.oc1.eu-frankfurt-1.aaaaaaaauxhghg36xuzzjgw2awsd3cv4p2f2jedr5palq6fpy4exd53tve5a

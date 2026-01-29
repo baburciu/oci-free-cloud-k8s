@@ -258,12 +258,10 @@ I chose the [envoy-gateway][envoy-gateway] implementation, as they feature
 With orcale providing a layer 7 loadbalancer, the oci-controller needs to
 know which securitygroup should be associated with the lb. This is done by
 annotating the Service. Using envoy, we have to add the annotations on an
-`EnvoyProxy` CR. Unfortunately the value for the sg is created via terraform,
-but is later needed on the object. In the past i used to write it in a configmap,
-and helm was able to use the CM as value.yaml and annotated the resource.
-This is now no longer possible, therefore the sg is currently hardcoded.
+`EnvoyProxy` CR.
+The SG is created via terraform, and it's OCID is written to `ConfigMap/oci-lb-sg-id`,
+which is used to feed the value to a [helm chart deploying the `EnvoyProxy` CR](gitops/core/envoy-gateway/charts/envoyproxy).
 
-[pr]: https://github.com/nce/oci-free-cloud-k8s/pull/152
 [gatewayapi]: https://gateway-api.sigs.k8s.io/
 [envoy-gateway]: https://gateway.envoyproxy.io/
 

@@ -1,7 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # we don't deploy Teleport yet, will consider Tailscale
-  # - flux.yaml
-  # - helm.yaml
+  - flux.yaml
+  - helm.yaml
   - namespace.yaml

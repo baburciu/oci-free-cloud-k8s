@@ -25,14 +25,12 @@ YAML
 # the LB, so we need to store the information in the cluster.
 # In combination with the flux/helmrelease, this gets evaluated and annotated on the lb
 resource "kubectl_manifest" "lg-sg-helm-values" {
-  for_each = toset(local.namespaces)
-
   yaml_body = <<YAML
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: oci-lb-sg-id
-  namespace: ${each.value}
+  namespace: flux-system
 data:
   values.yaml: |
     oci:

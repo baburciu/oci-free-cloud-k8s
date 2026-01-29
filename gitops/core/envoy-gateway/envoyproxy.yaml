@@ -1,14 +1,23 @@
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: EnvoyProxy
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
 metadata:
-  name: oracle-lb
+  name: envoyproxy
+  # we set the namespace to flux-system to reuse the GitRepository created there
+  # but set targetNamespace to envoy-gateway to install the resources there
+  namespace: flux-system
 spec:
-  provider:
-    type: Kubernetes
-    kubernetes:
-      envoyService:
-        annotations:
-          oci.oraclecloud.com/oci-network-security-groups: ocid1.networksecuritygroup.oc1.eu-frankfurt-1.aaaaaaaauxhghg36xuzzjgw2awsd3cv4p2f2jedr5palq6fpy4exd53tve5a
-          service.beta.kubernetes.io/oci-load-balancer-shape: flexible
-          service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "10"
-          service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
+  targetNamespace: envoy-gateway
+  interval: 5m
+  chart:
+    spec:
+      chart: ./gitops/core/envoy-gateway/charts
+      sourceRef:
+        kind: GitRepository
+        name: flux-system
+      interval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: oci-lb-sg-id
+      optional: false
+      targetPath: ociNetworkSecurityGroup
+      valuesKey: oci.lbsecuritygroup

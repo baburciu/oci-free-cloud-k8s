@@ -10,7 +10,7 @@ spec:
   interval: 5m
   chart:
     spec:
-      chart: ./gitops/core/envoy-gateway/charts
+      chart: ./gitops/core/envoyproxy/charts/envoyproxy
       sourceRef:
         kind: GitRepository
         name: flux-system

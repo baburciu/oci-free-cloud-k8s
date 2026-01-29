@@ -32,8 +32,6 @@ metadata:
   name: oci-lb-sg-id
   namespace: flux-system
 data:
-  values.yaml: |
-    oci:
-      lbsecuritygroup: ${oci_core_network_security_group.ingress_lb.id}
+  oci.lbsecuritygroup: ${oci_core_network_security_group.ingress_lb.id}
 YAML
 }

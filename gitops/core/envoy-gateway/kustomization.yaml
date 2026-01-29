@@ -4,7 +4,6 @@ namespace: envoy-gateway
 resources:
   - namespace.yaml
   - helm.yaml
-  - envoyproxy.yaml
   - gateway.yaml
   - certificate.yaml
   - secret.yaml

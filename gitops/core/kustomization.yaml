@@ -18,3 +18,4 @@ resources:
   # - s3-proxy/flux.yaml
   - gatewayapi-crds/flux.yaml
   - envoy-gateway/flux.yaml
+  - envoyproxy/flux.yaml

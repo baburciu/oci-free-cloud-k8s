@@ -4,7 +4,7 @@ metadata:
   name: envoy-gateway
   namespace: flux-system
 spec:
-  interval: 1h
+  interval: 5m
   path: ./gitops/core/envoy-gateway/
   prune: true
   sourceRef:

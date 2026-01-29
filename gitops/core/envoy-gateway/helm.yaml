@@ -1,7 +1,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: envoy
+  name: envoyproxy
 spec:
   interval: 5m
   type: oci
@@ -10,9 +10,26 @@ spec:
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: envoy-gatweway
+  name: gatwewayapi-crds
 spec:
-  interval: 10m
+  interval: 2m
+  timeout: 5m
+  chart:
+    spec:
+      chart: gateway-crds-helm
+      version: "1.6.1"
+      sourceRef:
+        kind: HelmRepository
+        name: envoyproxy
+      interval: 5m
+  releaseName: envoy-gateway
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+spec:
+  interval: 2m
   timeout: 5m
   chart:
     spec:
@@ -20,6 +37,6 @@ spec:
       version: "1.6.1"
       sourceRef:
         kind: HelmRepository
-        name: envoy
+        name: envoyproxy
       interval: 5m
   releaseName: envoy-gateway

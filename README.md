@@ -185,13 +185,169 @@ Vault secrets are:
 | `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
 | `github-app-client-id` | Manual | GitHub App Client ID |
 | `github-app-client-secret` | Manual | GitHub App Client Secret (generated on the General page) |
-| `dex-grafana-client` | Manual | Dex→Grafana OIDC client secret |
-| `dex-s3-proxy-client-secret` | Manual | Dex→S3-proxy OIDC client secret |
-| `dex-envoy-client-secret` | Manual | Dex→Envoy Gateway OIDC client secret |
+| `dex-grafana-client` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Grafana OIDC client secret |
+| `dex-s3-proxy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→S3-proxy OIDC client secret |
+| `dex-envoy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Envoy Gateway OIDC client secret |
 | `cloudflare-api-token` | Manual | Cloudflare API token for external-dns |
 | `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
 | `s3-proxy-user-secret_key` | Manual | OCI S3-compatible secret key |
 | `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |
+
+> [!IMPORTANT]
+> **Dex client secrets must be alphanumeric only** (no special characters like `%`, `+`, `=`, `[`, `]`, `{`, `}`).
+> Special characters cause URL encoding issues during OAuth token exchange with Envoy Gateway's OIDC filter.
+> The Terraform configuration generates secrets with `special = false` to ensure compatibility.
+
+## OIDC Authentication with Dex
+
+This setup uses [Dex](https://dexidp.io/) as an OIDC provider with GitHub as the upstream identity provider.
+There are two different authentication patterns used depending on the application.
+
+### Authentication Flow Overview
+
+```mermaid
+flowchart TB
+    subgraph User["User Browser"]
+        Browser
+    end
+
+    subgraph GitHub["GitHub"]
+        GitHubOAuth["GitHub OAuth"]
+    end
+
+    subgraph K8s["Kubernetes Cluster"]
+        subgraph DexNS["dex namespace"]
+            Dex["Dex OIDC Provider"]
+        end
+
+        subgraph EnvoyNS["envoy-gateway-system"]
+            EnvoyGW["Envoy Gateway"]
+            EnvoyProxy["Envoy Proxy"]
+        end
+
+        subgraph AppNS["Application Namespaces"]
+            Longhorn["Longhorn UI"]
+            Prometheus["Prometheus"]
+            Grafana["Grafana"]
+        end
+    end
+
+    Browser -->|1. Access app| EnvoyProxy
+    EnvoyProxy -->|2. Redirect to Dex| Dex
+    Dex -->|3. Redirect to GitHub| GitHubOAuth
+    GitHubOAuth -->|4. Auth + Consent| Browser
+    Browser -->|5. Callback with code| Dex
+    Dex -->|6. Exchange code for token| GitHubOAuth
+    Dex -->|7. Redirect with Dex code| Browser
+    Browser -->|8. Callback to app| EnvoyProxy
+    EnvoyProxy -->|9. Exchange code for token| Dex
+    EnvoyProxy -->|10. Authenticated request| Longhorn
+    EnvoyProxy -->|10. Authenticated request| Prometheus
+
+    Browser -->|Direct OIDC| Grafana
+    Grafana -->|Built-in OIDC| Dex
+```
+
+### Pattern 1: Envoy Gateway SecurityPolicy (Longhorn, Prometheus)
+
+Applications without built-in OIDC support use Envoy Gateway's [SecurityPolicy](https://gateway.envoyproxy.io/docs/tasks/security/oidc/)
+to add authentication at the ingress layer.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Envoy as Envoy Proxy
+    participant Dex
+    participant GitHub
+    participant App as Backend App
+
+    User->>Envoy: GET /
+    Envoy->>User: 302 Redirect to Dex
+    User->>Dex: /dex/auth?client_id=envoy-gateway
+    Dex->>User: 302 Redirect to GitHub
+    User->>GitHub: OAuth Authorization
+    GitHub->>User: 302 Callback to Dex
+    User->>Dex: /dex/callback?code=xxx
+    Dex->>GitHub: Exchange code for token
+    GitHub->>Dex: Access token
+    Dex->>User: 302 Redirect to app with Dex code
+    User->>Envoy: /oauth2/callback?code=yyy
+    Envoy->>Dex: POST /dex/token (exchange code)
+    Dex->>Envoy: ID token + Access token
+    Envoy->>User: Set session cookie + 302 to /
+    User->>Envoy: GET / (with cookie)
+    Envoy->>App: Proxied request
+    App->>Envoy: Response
+    Envoy->>User: Response
+```
+
+**Configuration:**
+- SecurityPolicy references HTTPRoute and specifies OIDC settings
+- Client secret stored in app namespace (e.g., `longhorn/dex-envoy-client`)
+- Same `clientID: envoy-gateway` used across all SecurityPolicies
+- Redirect URL unique per app (e.g., `https://storage.delaleusystems.com/oauth2/callback`)
+
+**Secrets flow:**
+```
+OCI Vault (dex-envoy-client-secret)
+    ↓ ExternalSecret
+K8s Secret (dex-envoy-client) in longhorn namespace → Envoy Gateway SecurityPolicy
+K8s Secret (dex-envoy-client) in dex namespace → Dex static client config (via envFrom)
+```
+
+### Pattern 2: Built-in OIDC (Grafana)
+
+Applications with native OIDC support handle authentication directly without Envoy Gateway involvement.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Envoy as Envoy Proxy
+    participant Grafana
+    participant Dex
+    participant GitHub
+
+    User->>Envoy: GET /
+    Envoy->>Grafana: Proxied request
+    Grafana->>User: 302 Redirect to Dex
+    User->>Dex: /dex/auth?client_id=grafana
+    Dex->>User: 302 Redirect to GitHub
+    User->>GitHub: OAuth Authorization
+    GitHub->>User: 302 Callback to Dex
+    User->>Dex: /dex/callback?code=xxx
+    Dex->>GitHub: Exchange code for token
+    GitHub->>Dex: Access token
+    Dex->>User: 302 Redirect to Grafana
+    User->>Envoy: /login/generic_oauth?code=yyy
+    Envoy->>Grafana: Proxied callback
+    Grafana->>Dex: POST /dex/token (exchange code)
+    Dex->>Grafana: ID token + Access token
+    Grafana->>User: Set session cookie + 302 to /
+```
+
+**Configuration:**
+- Grafana configured with `GF_AUTH_GENERIC_OAUTH_*` environment variables
+- Client secret mounted as volume from K8s secret
+- Separate `clientID: grafana` in Dex static clients
+- No SecurityPolicy needed on HTTPRoute
+
+**Secrets flow:**
+```
+OCI Vault (dex-grafana-client)
+    ↓ ExternalSecret
+K8s Secret (dex-grafana-client) in grafana namespace → Grafana deployment (volume mount)
+K8s Secret (dex-grafana-client) in dex namespace → Dex static client config (via envFrom)
+```
+
+### Dex Static Clients
+
+Dex is configured with static clients in [helm.yaml](gitops/core/dex/helm.yaml):
+
+| Client Name | Client ID | Used By | Redirect URI |
+|-------------|-----------|---------|--------------|
+| Envoy | `envoy-gateway` | Longhorn, Prometheus (via SecurityPolicy) | `https://<app>.delaleusystems.com/oauth2/callback` |
+| Grafana | `grafana` | Grafana (built-in OIDC) | `https://monitoring.delaleusystems.com/login/generic_oauth` |
+| S3Proxy | `s3-proxy` | S3 Proxy (built-in OIDC) | `https://s3.delaleusystems.com/auth/dex/callback` |
 
 #### Development
 Switching to a feature/dev branch is rather simple, just modify the

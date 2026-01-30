@@ -158,14 +158,19 @@ to annotate the github commit status, depending on the state of the `Kustomizati
 ### Flux Operator
 Flux Operator and its `FluxInstace` CR is instantiated from [Terraform](terraform/config/modules/fluxcd/flux.tf).
 
-I've setup a GitHub App following the [official guides](https://fluxcd.io/blog/2025/04/flux-operator-github-app-bootstrap/#github-app-docs), then added these permissions
+I've setup a GitHub App following the [official guides](https://fluxcd.io/blog/2025/04/flux-operator-github-app-bootstrap/#github-app-docs), used
+`https://login.delaleusystems.com/dex/callback` as Callback URL (see [dex](gitops/core/dex/helm.yaml) config) then added these permissions
 ```console
 contents        - read, write
 commit statuses - read, write
 webhooks        - read, write
+
+# needed for Dex GitHub connector - see https://github.com/dexidp/website/issues/163
 ```
 and installed the App on this repo. <br/>
 ![GitHub App permissions](docs/github-app-permissions.png)
+
+Also created a GitHub App Client Secret and manually added to OCI Vault (see below).
 
 ## Deployment
 
@@ -178,8 +183,8 @@ Vault secrets are:
 | `github-flux-webhook-token` | Terraform ([webhook.tf](terraform/config/modules/fluxcd/webhook.tf))  | Flux webhook validation |
 | `github-fluxcd-token` | Manual | GitHub PAT for Flux notifications |
 | `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
-| `GITHUB_DEX_CLIENT_ID` | Manual | GitHub OAuth App Client ID |
-| `GITHUB_DEX_CLIENT_SECRET` | Manual | GitHub OAuth App Client Secret |
+| `github-app-client-id` | Manual | GitHub App Client ID |
+| `github-app-client-secret` | Manual | GitHub App Client Secret (generated on the General page) |
 | `dex-grafana-client` | Manual | Dex→Grafana OIDC client secret |
 | `dex-s3-proxy-client-secret` | Manual | Dex→S3-proxy OIDC client secret |
 | `dex-envoy-client-secret` | Manual | Dex→Envoy Gateway OIDC client secret |

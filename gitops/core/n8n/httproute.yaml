@@ -16,3 +16,10 @@ spec:
       backendRefs:
         - name: n8n
           port: 80
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/webhook/"
+      backendRefs:
+        - name: n8n-webhook
+          port: 80

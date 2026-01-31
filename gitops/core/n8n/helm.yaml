@@ -1,10 +1,11 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: community-charts
+  name: n8n
 spec:
   interval: 5m
-  url: https://community-charts.github.io/helm-charts
+  type: "oci"
+  url: oci://8gears.container-registry.com/library
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -16,86 +17,155 @@ spec:
   chart:
     spec:
       chart: n8n
-      version: '1.16.27'
+      version: '2.0.1'
       sourceRef:
         kind: HelmRepository
-        name: community-charts
+        name: n8n
       interval: 5m
   releaseName: n8n
   values:
-    # following https://community-charts.github.io/docs/charts/n8n/configuration
+    # following https://github.com/8gears/n8n-helm-chart/blob/main/examples
+    _shared_config:
+      url: &url https://n8n.delaleusystems.com
+    image:
+      repository: docker.io/n8nio/n8n
     main:
-      persistence:
-        enabled: true
-        volumeName: "n8n-main-data"
-        mountPath: "/home/node/.n8n"
-        size: 8Gi
-        accessMode: ReadWriteOnce
-        annotations:
-          helm.sh/resource-policy: keep
+      config:
+        n8n:
+          editor_base_url: *url
+        executions_mode: queue
+        db:
+          type: postgresdb
+          postgresdb:
+            host: ep-odd-morning-aggv6k3b-pooler.c-2.eu-central-1.aws.neon.tech
+            port: 5432
+            database: neondb
+            user: neondb_owner
+            pool:
+              size: 10
+            ssl:
+              enabled: true
+              reject_Unauthorized: true
+        webhook_url: *url
+        queue:
+          health:
+            check:
+              active: true
+          bull:
+            redis:
+              host: n8n-valkey
+              port: 6379
+      extraEnv: &extraEnv # using YAML magic (anchors) to reference in worker.extraEnv
+        DB_POSTGRESDB_PASSWORD:
+          valueFrom:
+            secretKeyRef:
+              name: n8n-external-pg-pass
+              key: postgres-password
+      secret:
+        n8n:
+          encryption_key: "KNkxLq94jDvPWR80nEitZnkh72joVO" # https://docs.n8n.io/hosting/configuration/configuration-examples/encryption-key/
       resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
         limits:
-          cpu: 1000m
-          memory: 1Gi
-    worker:
-      mode: queue
-      persistence:
-        enabled: true
-        volumeName: "n8n-worker-data"
-        mountPath: "/home/node/.n8n"
-        size: 5Gi
-        accessMode: ReadWriteMany
-      count: 2
-      concurrency: 4
-      resources:
+          memory: 2048Mi
         requests:
-          cpu: 500m
           memory: 512Mi
-        limits:
-          cpu: 2000m
-          memory: 2Gi
-    # external PostgreSQL from Neon (AWS hosting)
-    db:
-      type: postgresdb
-    externalPostgresql:
-      host: ep-odd-morning-aggv6k3b-pooler.c-2.eu-central-1.aws.neon.tech
-      port: 5432
-      database: neondb
-      username: neondb_owner
-      existingSecret: n8n-external-pg-pass
-    redis:
-      enabled: true
-      architecture: standalone
-      master:
-        persistence:
-          enabled: true
-          size: 5Gi
+
     webhook:
-      mode: queue
-      url: "https://webhook.delaleusystems.com"
-      count: 1
+      enabled: true
+      extraEnv: *extraEnv
+
+    worker:
+      enabled: true
+      extraEnv: *extraEnv # using YAML magic (anchors) to reference main extraEnv
+      secret:
+        n8n:
+          encryption_key: "KNkxLq94jDvPWR80nEitZnkh72joVO"
+
+    valkey:
+      enabled: true
+      replicaCount: 1
+      auth:
+        enabled: false
+      dataStorage:
+        enabled: false
       resources:
         requests:
+          memory: 256Mi
           cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 512m
-          memory: 512Mi
-    serviceMonitor:
-      enabled: true
-      interval: 30s
-      timeout: 10s
-      labels:
-        release: prometheus
-      include:
-        defaultMetrics: true
-        cacheMetrics: false
-        messageEventBusMetrics: false
-        workflowIdLabel: false
-        nodeTypeLabel: false
-        credentialTypeLabel: false
-        apiEndpoints: false
-        queueMetrics: false
+
+    # following https://community-charts.github.io/docs/charts/n8n/configuration
+    # main:
+    #   persistence:
+    #     enabled: true
+    #     volumeName: "n8n-main-data"
+    #     mountPath: "/home/node/.n8n"
+    #     size: 8Gi
+    #     accessMode: ReadWriteOnce
+    #     annotations:
+    #       helm.sh/resource-policy: keep
+    #   resources:
+    #     requests:
+    #       cpu: 100m
+    #       memory: 128Mi
+    #     limits:
+    #       cpu: 1000m
+    #       memory: 1Gi
+    # worker:
+    #   mode: queue
+    #   persistence:
+    #     enabled: true
+    #     volumeName: "n8n-worker-data"
+    #     mountPath: "/home/node/.n8n"
+    #     size: 5Gi
+    #     accessMode: ReadWriteMany
+    #   count: 2
+    #   concurrency: 4
+    #   resources:
+    #     requests:
+    #       cpu: 500m
+    #       memory: 512Mi
+    #     limits:
+    #       cpu: 2000m
+    #       memory: 2Gi
+    # # external PostgreSQL from Neon (AWS hosting)
+    # db:
+    #   type: postgresdb
+    # externalPostgresql:
+    #   host: ep-odd-morning-aggv6k3b-pooler.c-2.eu-central-1.aws.neon.tech
+    #   port: 5432
+    #   database: neondb
+    #   username: neondb_owner
+    #   existingSecret: n8n-external-pg-pass
+    # redis:
+    #   enabled: true
+    #   architecture: standalone
+    #   master:
+    #     persistence:
+    #       enabled: true
+    #       size: 5Gi
+    # webhook:
+    #   mode: queue
+    #   url: "https://webhook.delaleusystems.com"
+    #   count: 1
+    #   resources:
+    #     requests:
+    #       cpu: 100m
+    #       memory: 128Mi
+    #     limits:
+    #       cpu: 512m
+    #       memory: 512Mi
+    # serviceMonitor:
+    #   enabled: true
+    #   interval: 30s
+    #   timeout: 10s
+    #   labels:
+    #     release: prometheus
+    #   include:
+    #     defaultMetrics: true
+    #     cacheMetrics: false
+    #     messageEventBusMetrics: false
+    #     workflowIdLabel: false
+    #     nodeTypeLabel: false
+    #     credentialTypeLabel: false
+    #     apiEndpoints: false
+    #     queueMetrics: false

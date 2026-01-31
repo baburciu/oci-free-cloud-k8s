@@ -20,4 +20,4 @@ resources:
   - envoy-gateway/flux.yaml
   - envoyproxy/flux.yaml
   - actualbudget/flux.yaml
-  # - n8n/flux.yaml
+  - n8n/flux.yaml

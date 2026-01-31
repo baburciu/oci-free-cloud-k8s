@@ -15,4 +15,4 @@ spec:
             value: "/"
       backendRefs:
         - name: actualbudget
-          port: 80
+          port: 5006

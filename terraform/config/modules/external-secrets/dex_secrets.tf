@@ -3,9 +3,10 @@ locals {
   vault_endpoint = data.oci_kms_vaults.existing_vault.vaults[0].management_endpoint
 
   dex_secrets = {
-    "dex-grafana-client"         = "Dex client secret for Grafana"
-    "dex-s3-proxy-client-secret" = "Dex client secret for S3 Proxy"
-    "dex-envoy-client-secret"    = "Dex client secret for Envoy Gateway"
+    "dex-grafana-client"             = "Dex client secret for Grafana"
+    "dex-s3-proxy-client-secret"     = "Dex client secret for S3 Proxy"
+    "dex-envoy-client-secret"        = "Dex client secret for Envoy Gateway"
+    "dex-actualbudget-client-secret" = "Dex client secret for Actual Budget"
   }
 
   existing_secret_names = [for s in data.oci_vault_secrets.existing_dex_secrets.secrets : s.secret_name]

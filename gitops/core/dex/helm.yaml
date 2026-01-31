@@ -35,6 +35,8 @@ spec:
           name: dex-s3-proxy-client
       - secretRef:
           name: dex-envoy-client
+      - secretRef:
+          name: dex-actualbudget-client
     replicaCount: 2
     https:
       enabled: false
@@ -79,6 +81,11 @@ spec:
           secretEnv: grafana.client-secret
           redirectURIs:
             - https://monitoring.delaleusystems.com/login/generic_oauth
+        - name: Actual Budget
+          IDEnv: actualbudget.client-id
+          secretEnv: actualbudget.client-secret
+          redirectURIs:
+            - https://budget.delaleusystems.com/openid/callback
       connectors:
         - type: github
           # Required field for connector id.

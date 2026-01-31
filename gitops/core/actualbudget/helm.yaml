@@ -11,10 +11,6 @@ kind: HelmRelease
 metadata:
   name: actualbudget
 spec:
-  install:
-    disableSchemaValidation: true
-  upgrade:
-    disableSchemaValidation: true
   interval: 10m
   timeout: 5m
   chart:
@@ -43,18 +39,31 @@ spec:
       requests:
         cpu: 200m
         memory: 256Mi
+    # we don't have Ingress controller but actualbudget chart only mounts OpenID config when Ingress is configured
+    # see https://github.com/community-charts/helm-charts/blob/cfc4efef4bef8d1ab9c3f669380f09368d2df04a/charts/actualbudget/templates/deployment.yaml#L75
+    # and https://github.com/community-charts/helm-charts/blob/cfc4efef4bef8d1ab9c3f669380f09368d2df04a/charts/actualbudget/templates/secret.yaml#L18-L21
+    ingress:
+      enabled: true
+      hosts:
+        - host: budget.delaleusystems.com
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      tls:
+       - secretName: actualbudget-tls
+         hosts:
+           - budget.delaleusystems.com
     login:
-      method: "oauth2"
+      allowedLoginMethods:
+        - openid
+      method: openid
       openid:
-        authMethod: oauth2
         enforce: true
-        providerName: GitHub
-        authorizationEndpoint: https://github.com/login/oauth/authorize
-        tokenEndpoint: https://github.com/login/oauth/access_token
-        userinfoEndpoint: https://api.github.com/user
-        # discoveryUrl:
+        providerName: dex
+        discoveryUrl: https://login.delaleusystems.com/dex/.well-known/openid-configuration
+        authMethod: openid
         tokenExpiration: 3600
         existingSecret:
-          name: "actualbudget-github-app-oauth-secret"
-          clientIdKey: "clientId"
-          clientSecretKey: "clientSecret"
+          name: dex-actualbudget-client
+          clientIdKey: actualbudget.client-id
+          clientSecretKey: actualbudget.client-secret

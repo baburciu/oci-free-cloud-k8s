@@ -23,6 +23,9 @@ spec:
       interval: 5m
   releaseName: n8n
   values:
+    # https://artifacthub.io/packages/helm/open-8gears/n8n is more starred
+    image:
+      repository: docker.io/n8nio/n8n
     # following https://community-charts.github.io/docs/charts/n8n/configuration
     main:
       persistence:

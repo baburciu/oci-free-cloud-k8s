@@ -1,0 +1,101 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: community-charts
+spec:
+  interval: 5m
+  url: https://community-charts.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: n8n
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: n8n
+      version: '1.16.27'
+      sourceRef:
+        kind: HelmRepository
+        name: community-charts
+      interval: 5m
+  releaseName: n8n
+  values:
+    # following https://community-charts.github.io/docs/charts/n8n/configuration
+    main:
+      persistence:
+        enabled: true
+        volumeName: "n8n-main-data"
+        mountPath: "/home/node/.n8n"
+        size: 8Gi
+        accessMode: ReadWriteOnce
+        annotations:
+          helm.sh/resource-policy: keep
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+    worker:
+      mode: queue
+      persistence:
+        enabled: true
+        volumeName: "n8n-worker-data"
+        mountPath: "/home/node/.n8n"
+        size: 5Gi
+        accessMode: ReadWriteMany
+      count: 2
+      concurrency: 4
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: 2000m
+          memory: 2Gi
+    # external PostgreSQL from Neon (AWS hosting)
+    db:
+      type: postgresdb
+    externalPostgresql:
+      host: ep-odd-morning-aggv6k3b-pooler.c-2.eu-central-1.aws.neon.tech
+      port: 5432
+      database: neondb
+      username: neondb_owner
+      existingSecret: n8n-external-pg-pass
+    redis:
+      enabled: true
+      architecture: standalone
+      master:
+        persistence:
+          enabled: true
+          size: 5Gi
+    webhook:
+      mode: queue
+      url: "https://webhook.delaleusystems.com"
+      count: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 512m
+          memory: 512Mi
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      timeout: 10s
+      labels:
+        release: prometheus
+      include:
+        defaultMetrics: true
+        cacheMetrics: false
+        messageEventBusMetrics: false
+        workflowIdLabel: false
+        nodeTypeLabel: false
+        credentialTypeLabel: false
+        apiEndpoints: false
+        queueMetrics: false

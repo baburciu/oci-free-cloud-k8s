@@ -182,13 +182,14 @@ Vault secrets are:
 |---|---|---|
 | `github-flux-webhook-token` | Terraform ([webhook.tf](terraform/config/modules/fluxcd/webhook.tf))  | Flux webhook validation |
 | `github-fluxcd-token` | Manual | GitHub PAT for Flux notifications |
-| `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
+| `cloudflare-api-token` | Manual | Cloudflare API token for external-dns |
 | `github-app-client-id` | Manual | GitHub App Client ID |
 | `github-app-client-secret` | Manual | GitHub App Client Secret (generated on the General page) |
 | `dex-grafana-client` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Grafana OIDC client secret |
 | `dex-s3-proxy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→S3-proxy OIDC client secret |
 | `dex-envoy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Envoy Gateway OIDC client secret |
-| `cloudflare-api-token` | Manual | Cloudflare API token for external-dns |
+| `neon-pg-password` | Manual | External PostgreSQL password for n8n |
+| `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
 | `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
 | `s3-proxy-user-secret_key` | Manual | OCI S3-compatible secret key |
 | `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |

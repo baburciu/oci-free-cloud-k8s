@@ -26,7 +26,7 @@ spec:
   values:
     image:
       repository: docker.io/bogdanadrianburciu/bagisto
-      tag: v2.3.6-6395eef
+      tag: v2.3.11-53730d7
     app:
       name: "Delaleu Systems Marketplace"
       env: "production"

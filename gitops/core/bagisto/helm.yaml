@@ -1,0 +1,38 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: bagisto
+spec:
+  interval: 1h
+  ref:
+    branch: main
+  url: https://github.com/baburciu/bagisto-helm
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bagisto
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: .
+      sourceRef:
+        kind: GitRepository
+        name: bagisto
+      interval: 5m
+  releaseName: bagisto
+  values:
+    image:
+      repository: docker.io/bogdanadrianburciu/bagisto
+      tag: v2.3.6-6395eef
+    app:
+      name: "Delaleu Systems Marketplace"
+      env: "production"
+      debug: true
+      key: "base64:QUX9qmrwebO2hl0zhoQ4Lz2+YlJtpsZzz4wrs1rqTAY="
+      url: "http://store.delaleusystems.com"
+      timezone: "UTC+2"
+      locale: "en"
+      currency: "RON"

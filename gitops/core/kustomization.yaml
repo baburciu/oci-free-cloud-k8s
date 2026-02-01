@@ -21,3 +21,4 @@ resources:
   - envoyproxy/flux.yaml
   - actualbudget/flux.yaml
   - n8n/flux.yaml
+  - bagisto/flux.yaml

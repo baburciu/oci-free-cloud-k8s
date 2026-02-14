@@ -55,7 +55,30 @@ resource "oci_core_security_list" "public_subnet_sl" {
     protocol         = "all"
   }
 
-  # ingres only our cidr
+  # egress to private subnet for NLB health checks and traffic on NodePorts
+  egress_security_rules {
+    stateless        = false
+    destination      = "10.0.1.0/24"
+    destination_type = "CIDR_BLOCK"
+    protocol         = "6"
+    tcp_options {
+      min = 31587
+      max = 31587
+    }
+  }
+
+  egress_security_rules {
+    stateless        = false
+    destination      = "10.0.1.0/24"
+    destination_type = "CIDR_BLOCK"
+    protocol         = "6"
+    tcp_options {
+      min = 31963
+      max = 31963
+    }
+  }
+
+  # ingress only from our cidr
   ingress_security_rules {
     stateless   = false
     source      = "10.0.0.0/16"
@@ -72,6 +95,18 @@ resource "oci_core_security_list" "public_subnet_sl" {
     tcp_options {
       min = 6443
       max = 6443
+    }
+  }
+
+  # ingress from internet on HTTPS (for NLB frontend)
+  ingress_security_rules {
+    stateless   = false
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
+    protocol    = "6"
+    tcp_options {
+      min = 443
+      max = 443
     }
   }
 }
@@ -91,6 +126,29 @@ resource "oci_core_security_list" "nlb_private_subnet_sl" {
     tcp_options {
       min = 30000
       max = 32767
+    }
+  }
+
+  # ingress from public subnet on specific NodePorts allocated by NLB services
+  ingress_security_rules {
+    stateless   = false
+    source      = "10.0.0.0/24"
+    source_type = "CIDR_BLOCK"
+    protocol    = "6"
+    tcp_options {
+      min = 31587
+      max = 31587
+    }
+  }
+
+  ingress_security_rules {
+    stateless   = false
+    source      = "10.0.0.0/24"
+    source_type = "CIDR_BLOCK"
+    protocol    = "6"
+    tcp_options {
+      min = 31963
+      max = 31963
     }
   }
 }

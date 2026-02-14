@@ -1,0 +1,212 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: schedule-notifier-script
+data:
+  notify-schedules.mjs: |
+    import api from '@actual-app/api';
+    import fs from 'node:fs';
+
+    // Configuration from environment variables
+    const ACTUAL_SERVER_URL = process.env.ACTUAL_SERVER_URL || 'http://actualbudget.actualbudget.svc.cluster.local:5006';
+    const ACTUAL_PASSWORD = process.env.ACTUAL_PASSWORD;
+    const ACTUAL_SYNC_ID = process.env.ACTUAL_SYNC_ID;
+    const NTFY_URL = process.env.NTFY_URL || 'http://ntfy.ntfy.svc.cluster.local';
+    const NTFY_TOPIC = process.env.NTFY_TOPIC || 'budget-schedules';
+    // NTFY auth: supports both token and basic auth (username:password)
+    const NTFY_TOKEN = process.env.NTFY_TOKEN;
+    const NTFY_USER = process.env.NTFY_USER;
+    const NTFY_PASSWORD = process.env.NTFY_PASSWORD;
+    const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL;
+    const DATA_DIR = '/tmp/actual-data';
+
+    // Helper to format currency (amount is in cents)
+    function formatAmount(amount) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(amount / 100);
+    }
+
+    // Helper to check if a date is today
+    function isToday(dateStr) {
+      const today = new Date();
+      const scheduleDate = new Date(dateStr);
+      return (
+        today.getFullYear() === scheduleDate.getFullYear() &&
+        today.getMonth() === scheduleDate.getMonth() &&
+        today.getDate() === scheduleDate.getDate()
+      );
+    }
+
+    // Helper to check if a date is within the next N days
+    function isWithinDays(dateStr, days) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const scheduleDate = new Date(dateStr);
+      scheduleDate.setHours(0, 0, 0, 0);
+      const diffTime = scheduleDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= days;
+    }
+
+    // Send notification via NTFY
+    async function sendNotification(title, message, priority = 3) {
+      const headers = {
+        'Title': title,
+        'Priority': String(priority),
+        'Tags': 'moneybag,calendar'
+      };
+
+      // Authentication: prefer token, fall back to basic auth
+      if (NTFY_TOKEN) {
+        headers['Authorization'] = `Bearer ${NTFY_TOKEN}`;
+      } else if (NTFY_USER && NTFY_PASSWORD) {
+        const credentials = Buffer.from(`${NTFY_USER}:${NTFY_PASSWORD}`).toString('base64');
+        headers['Authorization'] = `Basic ${credentials}`;
+      }
+
+      // Add email header if configured
+      if (NOTIFICATION_EMAIL) {
+        headers['Email'] = NOTIFICATION_EMAIL;
+      }
+
+      try {
+        const response = await fetch(`${NTFY_URL}/${NTFY_TOPIC}`, {
+          method: 'POST',
+          headers,
+          body: message
+        });
+
+        if (!response.ok) {
+          throw new Error(`NTFY responded with ${response.status}: ${await response.text()}`);
+        }
+
+        console.log(`Notification sent: ${title}`);
+        return true;
+      } catch (error) {
+        console.error(`Failed to send notification: ${error.message}`);
+        return false;
+      }
+    }
+
+    async function main() {
+      console.log('Starting Actual Budget schedule notifier...');
+      console.log(`Actual Server: ${ACTUAL_SERVER_URL}`);
+      console.log(`NTFY Server: ${NTFY_URL}`);
+
+      if (!ACTUAL_PASSWORD) {
+        console.error('ACTUAL_PASSWORD environment variable is required');
+        process.exit(1);
+      }
+
+      if (!ACTUAL_SYNC_ID) {
+        console.error('ACTUAL_SYNC_ID environment variable is required');
+        process.exit(1);
+      }
+
+      try {
+        // Create data directory if it doesn't exist
+        if (!fs.existsSync(DATA_DIR)) {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
+        }
+
+        // Initialize API
+        await api.init({
+          serverURL: ACTUAL_SERVER_URL,
+          password: ACTUAL_PASSWORD,
+          dataDir: DATA_DIR
+        });
+
+        console.log('Connected to Actual Budget server');
+
+        // Download the budget
+        await api.downloadBudget(ACTUAL_SYNC_ID);
+        console.log('Budget downloaded');
+
+        // Get all schedules
+        const schedules = await api.getSchedules();
+        console.log(`Found ${schedules.length} schedules`);
+
+        if (schedules.length === 0) {
+          console.log('No schedules found');
+          await api.shutdown();
+          return;
+        }
+
+        // Get accounts for mapping IDs to names
+        const accounts = await api.getAccounts();
+        const accountMap = new Map(accounts.map(a => [a.id, a.name]));
+
+        // Get payees for mapping IDs to names
+        const payees = await api.getPayees();
+        const payeeMap = new Map(payees.map(p => [p.id, p.name]));
+
+        // Filter schedules that are due today or within 3 days
+        const todaySchedules = [];
+        const upcomingSchedules = [];
+
+        for (const schedule of schedules) {
+          // Skip completed schedules
+          if (schedule.completed) continue;
+
+          const nextDate = schedule.next_date || schedule._date;
+          if (!nextDate) continue;
+
+          const payeeName = payeeMap.get(schedule._payee) || 'Unknown';
+          const accountName = accountMap.get(schedule._account) || 'Unknown';
+          const amount = schedule._amount || 0;
+
+          const scheduleInfo = {
+            name: schedule.name || payeeName,
+            payee: payeeName,
+            account: accountName,
+            amount: amount,
+            date: nextDate,
+            isApprox: schedule._date?.frequency != null // recurring schedule
+          };
+
+          if (isToday(nextDate)) {
+            todaySchedules.push(scheduleInfo);
+          } else if (isWithinDays(nextDate, 3)) {
+            upcomingSchedules.push(scheduleInfo);
+          }
+        }
+
+        console.log(`Schedules due today: ${todaySchedules.length}`);
+        console.log(`Schedules in next 3 days: ${upcomingSchedules.length}`);
+
+        // Send notifications for today's schedules (high priority)
+        for (const schedule of todaySchedules) {
+          const title = `Deposit ends today: ${schedule.name}`;
+          const message = [
+            `Payee: ${schedule.payee}`,
+            `Amount: ${formatAmount(schedule.amount)}`,
+            `Account: ${schedule.account}`,
+            `Date: ${schedule.date}`
+          ].join('\n');
+
+          await sendNotification(title, message, 4); // High priority
+        }
+
+        // Send a summary for upcoming schedules (normal priority)
+        if (upcomingSchedules.length > 0) {
+          const title = `${upcomingSchedules.length} Upcoming deposits (Next 3 Days)`;
+          const message = upcomingSchedules
+            .map(s => `• ${s.date}: ${s.name} - ${formatAmount(s.amount)}`)
+            .join('\n');
+
+          await sendNotification(title, message, 3); // Normal priority
+        }
+
+        await api.shutdown();
+        console.log('Schedule notifier completed successfully');
+
+      } catch (error) {
+        console.error('Error:', error.message);
+        console.error(error.stack);
+        process.exit(1);
+      }
+    }
+
+    main();

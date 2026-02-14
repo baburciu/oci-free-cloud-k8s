@@ -56,9 +56,10 @@ spec:
     login:
       allowedLoginMethods:
         - openid
+        - password  # Required for @actual-app/api library access (schedule notifier)
       method: openid
       openid:
-        enforce: true
+        enforce: false  # Allow password auth for API while keeping OIDC as default
         providerName: dex
         discoveryUrl: https://login.delaleusystems.com/dex/.well-known/openid-configuration
         authMethod: openid

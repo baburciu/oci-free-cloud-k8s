@@ -6,3 +6,4 @@ resources:
   - secret.yaml
   - helm.yaml
   - httproute.yaml
+  - schedule-notifier/ # enable this after setting up actualbudget and ntfy and adding Vault secrets

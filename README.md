@@ -195,6 +195,17 @@ Vault secrets are:
 | `ntfy-smtp-sender-pass` | Manual | Yahoo SMTP app password for ntfy email notifications |
 | `ntfy-admin-pass` | Manual | ntfy admin user password (used by init container and in-cluster callers) |
 | `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |
+| `actualbudget-server-password` | Manual | Actual Budget server password for API access (see note below) |
+| `actualbudget-sync-id` | Manual | Actual Budget file Sync ID (Settings → Show advanced settings → Sync ID) |
+
+> [!NOTE]
+> **Actual Budget Schedule Notifier**: The `actualbudget-server-password` is the **server password** set during
+> initial Actual Budget server setup — not the OIDC user credentials. The `@actual-app/api` library uses this
+> for programmatic access. The schedule-notifier CronJob ([gitops/core/actualbudget/schedule-notifier](gitops/core/actualbudget/schedule-notifier))
+> depends on both **Actual Budget** and **ntfy** being fully configured first:
+> 1. Actual Budget must be running with a synced budget file
+> 2. ntfy must be configured with the `baburciu` admin user and SMTP enabled
+> 3. Run `ntfy access baburciu budget-schedules rw` inside the ntfy pod to grant topic access
 
 > [!IMPORTANT]
 > **Dex client secrets must be alphanumeric only** (no special characters like `%`, `+`, `=`, `[`, `]`, `{`, `}`).

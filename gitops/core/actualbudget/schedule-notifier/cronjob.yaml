@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: schedule-notifier
+  labels:
+    app.kubernetes.io/name: schedule-notifier
+    app.kubernetes.io/component: notification
+    app.kubernetes.io/part-of: actualbudget
+spec:
+  # Run every day at 8:00 AM
+  schedule: "0 8 * * *"
+  timeZone: "Europe/Bucharest"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: schedule-notifier
+        spec:
+          restartPolicy: OnFailure
+          initContainers:
+            # Init container to install dependencies and copy script
+            - name: install-deps
+              image: node:20-alpine
+              command: ["sh", "-c"]
+              args:
+                - |
+                  cd /app
+                  npm init -y
+                  npm install @actual-app/api
+                  # Copy script to /app so it can find node_modules
+                  cp /scripts/notify-schedules.mjs /app/
+              volumeMounts:
+                - name: app
+                  mountPath: /app
+                - name: script
+                  mountPath: /scripts
+          containers:
+            - name: notifier
+              image: node:20-alpine
+              command: ["node", "/app/notify-schedules.mjs"]
+              env:
+                # Required for Node.js to find modules installed in /app
+                - name: NODE_PATH
+                  value: "/app/node_modules"
+                - name: ACTUAL_SERVER_URL
+                  value: "http://actualbudget.actualbudget.svc.cluster.local:5006"
+                - name: ACTUAL_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: schedule-notifier
+                      key: actual-password
+                - name: ACTUAL_SYNC_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: schedule-notifier
+                      key: actual-sync-id
+                - name: NTFY_URL
+                  value: "http://ntfy.ntfy.svc.cluster.local"
+                - name: NTFY_TOPIC
+                  value: "budget-schedules"
+                # Using basic auth with existing NTFY admin credentials
+                - name: NTFY_USER
+                  value: "baburciu"
+                - name: NTFY_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: schedule-notifier
+                      key: ntfy-password
+                # Email address to send notifications to
+                - name: NOTIFICATION_EMAIL
+                  value: "bogdanadrian.burciu@yahoo.com"
+              volumeMounts:
+                - name: app
+                  mountPath: /app
+                - name: tmp
+                  mountPath: /tmp
+              workingDir: /app
+              resources:
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+          volumes:
+            - name: script
+              configMap:
+                name: schedule-notifier-script
+            - name: app
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}

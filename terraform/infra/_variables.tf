@@ -31,3 +31,18 @@ variable "kubernetes_worker_nodes" {
 
   default = 2
 }
+
+variable "budget_alert_amount" {
+  # Amount is in the account's billing currency (see OCI Console > Billing & Cost Management > Payment Method)
+  description = "Monthly budget amount (in account's billing currency) that triggers an alert when reached"
+  type        = number
+
+  default     = 1
+}
+
+variable "budget_alert_email" {
+  description = "Email address to receive budget alert notifications"
+  type        = string
+
+  default = "bogdanadrian.burciu@yahoo.com"
+}

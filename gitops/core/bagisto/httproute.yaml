@@ -32,6 +32,12 @@ spec:
         - path:
             type: PathPrefix
             value: "/admin"
+        - path:
+            type: PathPrefix
+            value: "/oauth2"
+        - path:
+            type: PathPrefix
+            value: "/logout"
       backendRefs:
         - name: bagisto-bagisto
           port: 80

@@ -73,7 +73,6 @@ spec:
             - https://flux.delaleusystems.com/oauth2/callback
             - https://n8n.delaleusystems.com/oauth2/callback
             - https://store.delaleusystems.com/oauth2/callback
-            - https://ntfy.delaleusystems.com/oauth2/callback
         - name: S3Proxy
           IDEnv: s3proxy.client-id
           secretEnv: s3proxy.client-secret

@@ -14,6 +14,26 @@ spec:
       labels:
         app.kubernetes.io/name: ntfy
     spec:
+      initContainers:
+        - name: ensure-admin
+          image: docker.io/binwiederhier/ntfy:v2.17.0
+          command: ["sh", "-c"]
+          args:
+            - |
+              NTFY_PASSWORD="$NTFY_ADMIN_PASS" ntfy user add --role=admin baburciu 2>/dev/null || true
+          env:
+            - name: NTFY_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ntfy-admin
+                  key: admin-pass
+          volumeMounts:
+            - name: config
+              mountPath: /etc/ntfy/server.yml
+              subPath: server.yml
+              readOnly: true
+            - name: auth
+              mountPath: /var/lib/ntfy
       containers:
         - name: ntfy
           image: docker.io/binwiederhier/ntfy:v2.17.0
@@ -39,7 +59,6 @@ spec:
           resources:
             limits:
               memory: 256Mi
-              cpu: 200m
             requests:
               memory: 128Mi
               cpu: 100m

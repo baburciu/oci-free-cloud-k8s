@@ -193,6 +193,7 @@ Vault secrets are:
 | `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
 | `s3-proxy-user-secret_key` | Manual | OCI S3-compatible secret key |
 | `ntfy-smtp-sender-pass` | Manual | Yahoo SMTP app password for ntfy email notifications |
+| `ntfy-admin-pass` | Manual | ntfy admin user password (used by init container and in-cluster callers) |
 | `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |
 
 > [!IMPORTANT]

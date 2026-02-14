@@ -1,0 +1,17 @@
+base-url: https://ntfy.delaleusystems.com
+listen-http: ":80"
+behind-proxy: true
+
+cache-file: /var/cache/ntfy/cache.db
+attachment-cache-dir: /var/cache/ntfy/attachments
+
+auth-file: /var/lib/ntfy/user.db
+auth-default-access: deny-all
+
+upstream-base-url: https://ntfy.sh
+
+# Yahoo SMTP — fill in your Yahoo email address below
+smtp-sender-addr: smtp.mail.yahoo.com:587
+smtp-sender-user: bogdanadrian.burciu@yahoo.com
+smtp-sender-from: bogdanadrian.burciu@yahoo.com
+# smtp-sender-pass is injected via NTFY_SMTP_SENDER_PASS env var

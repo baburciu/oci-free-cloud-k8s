@@ -192,6 +192,7 @@ Vault secrets are:
 | `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
 | `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
 | `s3-proxy-user-secret_key` | Manual | OCI S3-compatible secret key |
+| `ntfy-smtp-sender-pass` | Manual | Yahoo SMTP app password for ntfy email notifications |
 | `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |
 
 > [!IMPORTANT]

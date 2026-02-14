@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ntfy
+  labels:
+    app.kubernetes.io/name: ntfy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ntfy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ntfy
+    spec:
+      containers:
+        - name: ntfy
+          image: docker.io/binwiederhier/ntfy:v2.17.0
+          command: ["ntfy", "serve"]
+          env:
+            - name: NTFY_SMTP_SENDER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ntfy-smtp
+                  key: smtp-sender-pass
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/ntfy/server.yml
+              subPath: server.yml
+              readOnly: true
+            - name: cache
+              mountPath: /var/cache/ntfy
+            - name: auth
+              mountPath: /var/lib/ntfy
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 200m
+            requests:
+              memory: 128Mi
+              cpu: 100m
+      volumes:
+        - name: config
+          configMap:
+            name: ntfy-server
+        - name: cache
+          persistentVolumeClaim:
+            claimName: ntfy-cache
+        - name: auth
+          persistentVolumeClaim:
+            claimName: ntfy-auth

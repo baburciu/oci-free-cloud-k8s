@@ -30,7 +30,7 @@ spec:
     app:
       name: "Delaleu Systems Marketplace"
       env: "production"
-      debug: true
+      debug: false
       key: "base64:QUX9qmrwebO2hl0zhoQ4Lz2+YlJtpsZzz4wrs1rqTAY="
       url: "http://store.delaleusystems.com"
       timezone: "UTC"

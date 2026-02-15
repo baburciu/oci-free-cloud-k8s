@@ -36,3 +36,5 @@ spec:
       timezone: "UTC"
       locale: "ro"
       currency: "RON"
+    storage:
+      storageClassName: longhorn

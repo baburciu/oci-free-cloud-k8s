@@ -26,7 +26,7 @@ spec:
   values:
     image:
       repository: docker.io/bogdanadrianburciu/bagisto
-      tag: v2.3.11-9db73c2
+      tag: v2.3.11-ro-language-5b7c843
     app:
       name: "Delaleu Systems Marketplace"
       env: "production"
@@ -34,5 +34,5 @@ spec:
       key: "base64:QUX9qmrwebO2hl0zhoQ4Lz2+YlJtpsZzz4wrs1rqTAY="
       url: "http://store.delaleusystems.com"
       timezone: "UTC"
-      locale: "en"
+      locale: "ro"
       currency: "RON"

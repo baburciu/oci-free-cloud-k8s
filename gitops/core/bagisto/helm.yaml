@@ -38,3 +38,4 @@ spec:
       currency: "RON"
     storage:
       storageClassName: longhorn
+    replicaCount: 1

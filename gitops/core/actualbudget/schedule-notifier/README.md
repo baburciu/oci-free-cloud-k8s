@@ -7,6 +7,7 @@ A Kubernetes CronJob that checks Actual Budget for scheduled transactions and se
 - Connects to Actual Budget server using the official `@actual-app/api` library
 - Checks for scheduled transactions due today (high priority notification)
 - Sends summary of upcoming transactions in the next 3 days
+- Extracts currency (RON, EUR, etc.) from schedule names for proper formatting
 - Sends email notifications via NTFY's email gateway
 
 ## Configuration
@@ -62,21 +63,20 @@ Then update the cronjob.yaml to use `NTFY_TOKEN` instead of `NTFY_USER`/`NTFY_PA
 
 ## Notification Format
 
-### Payment Due Today (High Priority)
+### Deposit Due Today (High Priority)
 ```
-💰 Payment Due Today: Rent Payment
+Deposit ends today: Unicredit RON 6.5% #2
 ---
-Payee: Landlord
-Amount: $1,500.00
-Account: Checking
-Date: 2024-02-14
+Payee: Unicredit RON
+Amount: 10.328,00 RON
+Account: current account
+Date: 2026-04-06
 ```
 
-### Upcoming Payments Summary (Normal Priority)
+### Upcoming Deposits Summary (Normal Priority)
 ```
-📅 3 Upcoming Payments (Next 3 Days)
+2 Upcoming deposits (Next 3 Days)
 ---
-• 2024-02-15: Electric Bill - $120.00
-• 2024-02-16: Internet - $80.00
-• 2024-02-17: Subscription - $15.00
+• 2026-04-08: ProCredit EUR 2.6% #1 - €10,000.00
+• 2026-04-09: Raiffeisen RON 6.3% #1 - 20.000,00 RON
 ```

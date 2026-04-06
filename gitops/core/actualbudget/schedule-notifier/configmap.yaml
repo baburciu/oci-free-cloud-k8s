@@ -20,11 +20,18 @@ data:
     const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL;
     const DATA_DIR = '/tmp/actual-data';
 
+    // Extract currency code from schedule name (e.g. "Unicredit RON 6.5% #2" -> "RON")
+    function extractCurrency(name) {
+      const match = name?.match(/\b(RON|EUR|USD|GBP|CHF)\b/i);
+      return match ? match[1].toUpperCase() : 'USD';
+    }
+
     // Helper to format currency (amount is in cents)
-    function formatAmount(amount) {
-      return new Intl.NumberFormat('en-US', {
+    function formatAmount(amount, currency = 'USD') {
+      const locale = currency === 'RON' ? 'ro-RO' : 'en-US';
+      return new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: 'USD'
+        currency
       }).format(amount / 100);
     }
 
@@ -150,50 +157,24 @@ data:
           // Skip completed schedules
           if (schedule.completed) continue;
 
-          // Debug: log raw schedule fields to diagnose data shape
-          console.log(`Schedule "${schedule.name}":`, JSON.stringify({
-            _payee: schedule._payee,
-            _account: schedule._account,
-            _amount: schedule._amount,
-            _date: schedule._date,
-            next_date: schedule.next_date,
-            // Also check non-underscore variants
-            payee: schedule.payee,
-            account: schedule.account,
-            amount: schedule.amount,
-            date: schedule.date
-          }, null, 2));
-
-          const nextDate = schedule.next_date || schedule._date;
+          const nextDate = schedule.next_date || schedule.date;
           if (!nextDate) continue;
 
-          // Extract payee ID: handle both plain ID and condition object {value, op}
-          const rawPayee = schedule._payee ?? schedule.payee;
-          const payeeId = typeof rawPayee === 'object' && rawPayee !== null ? (rawPayee.value ?? rawPayee.id) : rawPayee;
-          const payeeName = payeeMap.get(payeeId) || 'Unknown';
+          const payeeName = payeeMap.get(schedule.payee) || 'Unknown';
+          const accountName = accountMap.get(schedule.account) || 'current account';
+          const amount = schedule.amount || 0;
 
-          // Extract account ID: handle both plain ID and condition object
-          const rawAccount = schedule._account ?? schedule.account;
-          const accountId = typeof rawAccount === 'object' && rawAccount !== null ? (rawAccount.value ?? rawAccount.id) : rawAccount;
-          const accountName = accountMap.get(accountId) || 'Unknown';
-
-          // Extract amount: handle plain number, {num1, num2} (isbetween/isapprox), or condition object
-          const rawAmount = schedule._amount ?? schedule.amount;
-          let amount = 0;
-          if (typeof rawAmount === 'number') {
-            amount = rawAmount;
-          } else if (typeof rawAmount === 'object' && rawAmount !== null) {
-            // For isapprox/isbetween, use num1 (the primary amount); fall back to value
-            amount = rawAmount.num1 ?? rawAmount.value ?? rawAmount.amount ?? 0;
-          }
+          const name = schedule.name || payeeName;
+          const currency = extractCurrency(name);
 
           const scheduleInfo = {
-            name: schedule.name || payeeName,
+            name,
             payee: payeeName,
             account: accountName,
             amount: amount,
+            currency,
             date: nextDate,
-            isApprox: schedule._date?.frequency != null // recurring schedule
+            isApprox: schedule.date?.frequency != null // recurring schedule
           };
 
           if (isToday(nextDate)) {
@@ -211,7 +192,7 @@ data:
           const title = `Deposit ends today: ${schedule.name}`;
           const message = [
             `Payee: ${schedule.payee}`,
-            `Amount: ${formatAmount(schedule.amount)}`,
+            `Amount: ${formatAmount(schedule.amount, schedule.currency)}`,
             `Account: ${schedule.account}`,
             `Date: ${schedule.date}`
           ].join('\n');
@@ -223,7 +204,7 @@ data:
         if (upcomingSchedules.length > 0) {
           const title = `${upcomingSchedules.length} Upcoming deposits (Next 3 Days)`;
           const message = upcomingSchedules
-            .map(s => `• ${s.date}: ${s.name} - ${formatAmount(s.amount)}`)
+            .map(s => `• ${s.date}: ${s.name} - ${formatAmount(s.amount, s.currency)}`)
             .join('\n');
 
           await sendNotification(title, message, 3); // Normal priority

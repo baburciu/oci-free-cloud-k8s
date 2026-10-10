@@ -128,6 +128,69 @@ and the backup target shows *Available*. Example for Actual Budget:
    The backup labels are re-added by the next Helm upgrade. For the MySQL
    PVC, re-add them with `kubectl label`.
 
+### Restore with kubectl
+
+The same steps without the UI. Longhorn finishes a restore of this size in
+seconds; `status.restoreRequired: false` with `status.lastBackup` set means it's done.
+
+1. Save each PVC's labels and Helm annotations, so the restored PVC keeps Helm
+   ownership and the backup labels, then suspend, scale to 0 and delete the PVCs
+   as in step 1 above:
+   ```sh
+   kubectl -n actualbudget get pvc actualbudget-data -o json \
+     | jq '{labels: .metadata.labels, annotations: (.metadata.annotations | with_entries(select(.key|startswith("meta.helm.sh"))))}'
+   ```
+2. Restore each volume under its previous name. Backup names and URLs are listed
+   by `kubectl -n longhorn get backups.longhorn.io -o custom-columns=VOLUME:.status.volumeName,URL:.status.url`:
+   ```yaml
+   apiVersion: longhorn.io/v1beta2
+   kind: Volume
+   metadata:
+     name: pvc-a606c8b4-7fa1-4339-9744-4a999ec3cbd5      # previous volume name
+     namespace: longhorn
+   spec:
+     fromBackup: "s3://longhorn-backups@eu-frankfurt-1/?backup=<backup-name>&volume=<volume-name>"
+     size: "10737418240"
+     numberOfReplicas: 2
+     accessMode: rwo          # rwx for bagisto-bagisto-storage
+     frontend: blockdev
+     dataEngine: v1
+   ```
+3. Bind it with a PV and a PVC carrying the saved labels/annotations:
+   ```yaml
+   apiVersion: v1
+   kind: PersistentVolume
+   metadata:
+     name: pvc-a606c8b4-7fa1-4339-9744-4a999ec3cbd5
+   spec:
+     capacity: {storage: 10Gi}
+     accessModes: [ReadWriteOnce]
+     persistentVolumeReclaimPolicy: Delete
+     storageClassName: longhorn
+     claimRef: {namespace: actualbudget, name: actualbudget-data}
+     csi:
+       driver: driver.longhorn.io
+       fsType: ext4
+       volumeHandle: pvc-a606c8b4-7fa1-4339-9744-4a999ec3cbd5
+       volumeAttributes: {numberOfReplicas: "2", staleReplicaTimeout: "30", dataEngine: v1}
+   ---
+   apiVersion: v1
+   kind: PersistentVolumeClaim
+   metadata:
+     name: actualbudget-data
+     namespace: actualbudget
+     labels: {}        # saved labels
+     annotations: {}   # saved meta.helm.sh/* annotations
+   spec:
+     accessModes: [ReadWriteOnce]
+     resources: {requests: {storage: 10Gi}}
+     storageClassName: longhorn
+     volumeName: pvc-a606c8b4-7fa1-4339-9744-4a999ec3cbd5
+   ```
+4. Scale up (MySQL before Bagisto), check the data, then resume the HelmReleases.
+   A release whose install failed while the volumes were empty needs
+   `flux -n <ns> reconcile hr <name> --force`.
+
 ## MySQL consistency
 
 The MySQL volume is backed up as a live block-device snapshot. That is

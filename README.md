@@ -599,8 +599,8 @@ Commands in `terraform/infra` unless stated otherwise.
    ❯ terraform plan -destroy -target=oci_containerengine_cluster.k8s_cluster -out=destroy.tfplan
    ❯ terraform apply destroy.tfplan
    ```
-   Node pool deletion takes ~15min, cluster deletion from a few minutes up to
-   over an hour.
+   Node pool deletion takes ~15min once the nodes can drain, creating
+   the new cluster and node pool takes ~15min.
 4. Create the new cluster at the target version:
    ```
    ❯ sed -i '' 's/default = "v1.34.1"/default = "v1.37.0"/' _variables.tf
@@ -619,44 +619,30 @@ Commands in `terraform/infra` unless stated otherwise.
    ❯ terraform plan
    ❯ terraform apply
    ```
+   The first apply fails on the `ClusterSecretStore`: its CRD and validating
+   webhook only exist once Flux has installed External Secrets. Wait until
+   `kubectl -n external-secrets get deploy` shows all three deployments ready,
+   then run `terraform apply` again.
 6. Flux bootstraps everything from git. external-dns points the Cloudflare
    records to the new LB IP and cert-manager re-issues the certificates.
    The apps with backed-up volumes start empty.
-7. Restore the volumes as described in [docs/backup.md](docs/backup.md#restore).
+   Kustomizations whose dry-run ran before the External Secrets webhook or the
+   Envoy Gateway / cert-manager CRDs were ready show `dry-run failed`, and only
+   retry at their 1h interval. Speed that up with
+   `flux -n flux-system reconcile ks <name>` for each of them.
+
+   The OIDC-protected routes (Longhorn, Prometheus, Flux UI, Bagisto admin)
+   answer `500` at first: Envoy Gateway fetched Dex's discovery document before
+   external-dns had created `login.delaleusystems.com`, marked the
+   `SecurityPolicies` `Accepted=False`, and doesn't retry. The OCI VCN resolver
+   also caches that "no such host" for up to 30min. Once the name resolves in
+   the cluster, restart the Envoy Gateway controller (the proxy keeps serving):
+   ```
+   ❯ kubectl run dnscheck --rm -i --restart=Never --image=busybox:1.36 -- nslookup login.delaleusystems.com
+   ❯ kubectl -n envoy-gateway rollout restart deploy/envoy-gateway
+   ❯ kubectl get securitypolicy -A -o json | jq -r '.items[] | "\(.metadata.name): \(.status.ancestors[0].conditions[0].status)"'
+   ```
+7. Restore the volumes as described in [docs/backup.md](docs/backup.md#restore)
+   (UI or kubectl).
 8. The new cluster has a new OCID: use `terraform/.kube.config`, or regenerate
    the local kubeconfig with `oci ce cluster create-kubeconfig --cluster-id <ocid> ...`.
-
-## Upgrade notes per version
-### OKE Upgrade 1.31.1
-For the current update, i've written above upgrade instructions.
-Worked flawlessly, though still with a bit of manual interaction in the webui...
-
-### OKE Upgrade 1.29.1
-I mostly skipped `1.27.2` & `1.28.2` (on the workers) and went for the `1.29` release. As the UI didn't
-prompt for a direct upgrade path of the control-plane, i upgraded the k8s-tf
-version to the prompted next release, ran the upgrade, and continued with the next version.
-
-The worker nodes remained at `1.26.7` during the oke upgrade, which worked because with 1.28
-the new skew policy allows for worker nodes to be three versions behind.
-
-### OKE Upgrade 1.25.4
-
-:warning: remember to remove any `PSP`s first
-
-1. Upgrade the nodepool & cluster version by setting the k8s variable; Run terrafrom (takes ~10min)
-2. Drain/Cordon worker01
-3. Go to the UI; delete the worker01 from the nodepool
-4. Scale the Nodepool back to 2 (takes ~10min)
-5. Wait for longhorn to sync (no volume in state `degraded`)
-6. repeat for second node (2-5)
-
-### OKE Upgrade 1.24
-
-The 1.23.4 -> 1.24.1 Kubernetes Upgrade went pretty smooth, but by hand.
-
-I followed the official guide:
-
-- https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contengupgradingk8smasternode.htm
-- https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contengupgradingk8sworkernode.htm
-
-Longhorn synced all volumes after the new node got ready. No downtime experienced.

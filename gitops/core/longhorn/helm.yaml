@@ -16,7 +16,7 @@ spec:
   chart:
     spec:
       chart: longhorn
-      version: '1.10.1'
+      version: '1.11.3'
       sourceRef:
         kind: HelmRepository
         name: longhorn
@@ -27,6 +27,8 @@ spec:
       imageRegistry: docker.io
     defaultSettings:
       storageMinimalAvailablePercentage: 10
+      # live-upgrade volume engines after a Longhorn upgrade, one volume per node at a time
+      concurrentAutomaticEngineUpgradePerNodeLimit: 1
     defaultBackupStore:
       # backupTarget comes from valuesFrom above
       backupTargetCredentialSecret: longhorn-backup-s3

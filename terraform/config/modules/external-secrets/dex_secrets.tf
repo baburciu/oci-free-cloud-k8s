@@ -9,20 +9,7 @@ locals {
     "dex-actualbudget-client-secret" = "Dex client secret for Actual Budget"
   }
 
-  existing_secret_names = [for s in data.oci_vault_secrets.existing_dex_secrets.secrets : s.secret_name]
-  # Only create secrets that don't already exist
-  secrets_to_create = {
-    for name, description in local.dex_secrets :
-    name => description if !contains(local.existing_secret_names, name)
-  }
-
   key_id = data.oci_kms_keys.existing_key.keys[0].id
-}
-
-# Data source to check if secrets already exist
-data "oci_vault_secrets" "existing_dex_secrets" {
-  vault_id       = local.vault_id
-  compartment_id = var.compartment_id
 }
 
 # Data source to get the KMS key for encrypting vault secrets
@@ -46,9 +33,9 @@ resource "random_password" "dex_client" {
   special = false
 }
 
-# Create OCI Vault secrets only if they don't exist
+# Secrets created before they were managed here are adopted with import blocks (see ../../main.tf)
 resource "oci_vault_secret" "dex_client" {
-  for_each = local.secrets_to_create
+  for_each = local.dex_secrets
 
   compartment_id = var.compartment_id
   vault_id       = local.vault_id
@@ -60,5 +47,10 @@ resource "oci_vault_secret" "dex_client" {
   secret_content {
     content      = base64encode(random_password.dex_client[each.key].result)
     content_type = "BASE64"
+  }
+
+  # never rotate a client secret that Dex and its client already use
+  lifecycle {
+    ignore_changes = [secret_content]
   }
 }

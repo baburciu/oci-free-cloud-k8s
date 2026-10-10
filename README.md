@@ -119,8 +119,6 @@ compartment_id = "ocid1.tenancy.oc1..aa"
 # terraform/config/config.auto.tfvars
 compartment_id = "ocid1.tenancy.oc1..aa"
 
-gh_token = "github_pat_aa"
-
 github_app_id = "2748318"
 
 github_app_installation_id = "106655669"
@@ -145,16 +143,12 @@ The terraform resources in the [config](./terraform/config) folder will rely on 
 
 ## FluxCD
 Most resources and core components of the k8s cluster are provisioned with FluxCD.
-Therefore we need a GitHub Personal Acccess Token (PAT - fine grained) in for this repo, with these permissions
-```console
-contents        - read, write
-commit statuses - read, write
-webhooks        - read, write
-```
 
-* Place this token in a [private tfvars of `config`](terraform/config/config.auto.tfvars). This is used to generate the fluxcd webhook url, which triggers fluxcd reconciliation after each commit
-* Place this token in the oci vault (`github-fluxcd-token`). This allows fluxcd
-to annotate the github commit status, depending on the state of the `Kustomization`.
+* Flux pulls the repo and Terraform manages the GitHub push webhook (which
+  triggers Flux reconciliation after each commit) with the GitHub App below.
+* Flux annotates the GitHub commit status with a fine-grained Personal Access
+  Token (`commit statuses - read, write` on this repo), stored in the OCI Vault
+  as `github-fluxcd-token`.
 
 ### Flux Operator
 Flux Operator and its `FluxInstace` CR is instantiated from [Terraform](terraform/config/modules/fluxcd/flux.tf).
@@ -189,6 +183,7 @@ Vault secrets are:
 | `dex-grafana-client` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Grafana OIDC client secret |
 | `dex-s3-proxy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→S3-proxy OIDC client secret |
 | `dex-envoy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Envoy Gateway OIDC client secret |
+| `dex-actualbudget-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Actual Budget OIDC client secret |
 | `neon-pg-password` | Manual | External PostgreSQL password for n8n |
 | `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
 | `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
@@ -505,49 +500,133 @@ A collection of relevant upstream documentation for reference
 [flux-operator-migration]: https://fluxcd.control-plane.io/operator/flux-bootstrap-migration/
 
 # Upgrading the Kubernetes Version
-I recommend only upgrading to the version the first command (`available-kubernetes-upgrades`) shows.
-Other upgrades, or jumps to the latest version not being shown, might break the process.
-The [K8s Skew policy][k8s-skew] allows the worker nodes (`kubelets`)
-to be three minor versions behind, so you might be alright, if you incrementally update the controlplane,
-before updating the nodepool.
+There are two ways to move the cluster to a newer version:
+
+| | In-place upgrade | Recreate the cluster |
+|---|---|---|
+| Steps | one `terraform apply` per minor version, then roll the nodes | targeted destroy + apply at the target version, then restore volumes |
+| Downtime | short pod restarts while nodes roll | hours: everything is down until Flux has redeployed and volumes are restored |
+| Longhorn data | kept; replicas resync onto the new nodes | lost; restored from the [S3 backups](docs/backup.md) |
+| LB public IP | kept | new IP; external-dns updates the Cloudflare records |
+| Risk | one node replaced at a time | both A1 nodes released at once; "Out of host capacity" in Frankfurt can leave the cluster without nodes for hours or days |
+
+OKE only offers the next minor version as an upgrade, so an in-place upgrade
+across several minors needs one apply per minor. The [K8s skew policy][k8s-skew]
+lets kubelets run up to three minor versions behind the control plane, so the
+nodes only need to be rolled once, at the end.
 
 [k8s-skew]: https://kubernetes.io/releases/version-skew-policy/#kubelet
 
-The commands should be executed inside [terraform/infra/](terraform/infra)
-```
-# get new cluster versions
-❯ oci ce cluster get --cluster-id $(terraform output --raw k8s_cluster_id) | jq -r '.data."available-kubernetes-upgrades"'
+## Before either path
+* Take fresh Longhorn backups of the volumes that matter ([docs/backup.md](docs/backup.md))
+  and check they are `Completed`. For a consistent MySQL backup, scale the apps
+  to 0 first.
+* Check for API removals in the target version, e.g. `pluto detect-all-in-cluster --target-versions k8s=<version>`.
+* Check that a node image exists for the target version. `k8s.tf` picks the
+  first image matching `.*aarch.*OKE-<version>.*`:
+  ```
+  ❯ oci ce node-pool-options get --node-pool-option-id all \
+      | jq -r '.data.sources[]."source-name"' | grep aarch | grep 'OKE-1.37.0'
+  ```
 
-# update the cluster version with the information from above
-❯ sed -i '' 's/default = "'$(terraform output --raw kubernetes_version)'"/default = "v1.31.1"/' _variables.tf
+## In-place upgrade
+All commands run inside [terraform/infra/](terraform/infra).
 
-# upgrade the controlplane and the nodepool & images
-# this shouldn't roll the nodes and might take around 10mins
-❯ terraform apply
-```
- To roll the nodes, i cordon & drain the k8s node:
-```
-❯ k drain <k8s-node-name> --force --ignore-daemonsets --delete-emptydir-data
-❯ k cordon <k8s-node-name>
-```
-A node deletion in k8s doesn't trigger a change in the `nodepool`. For that, we
-need to terminate the correct instance. But i haven't figured out how to delete the -
-currently cordoned - node, only using `oci`.
+1. Upgrade the control plane, one minor version at a time:
+   ```
+   # versions offered as next step
+   ❯ oci ce cluster get --cluster-id $(terraform output -raw k8s_cluster_id) | jq -r '.data."available-kubernetes-upgrades"'
 
-So, login to the webui -> Oke Cluster -> Node pool and check for the right
-instance by looking at the private_ip and copy the id.
+   # set the version
+   ❯ sed -i '' 's/default = "'$(terraform output -raw kubernetes_version)'"/default = "v1.35.2"/' _variables.tf
 
-Now terminate that instance:
-```
-❯ oci compute instance terminate --force --instance-id <oidc.id>
-```
-This triggers a node recreation. Now wait till the node is Ready; And then wait for
-longhorn to sync the volumes.
-```
-# wait until all volumes are healthy again
-❯ k get -w volumes.longhorn.io -A
-```
-Repeat the cordon/drain/terminate for the second node.
+   # expect: cluster + node_pool "updated in-place", local_file.kube_config replaced
+   ❯ terraform plan
+   # ~10min; workloads keep running, nodes are not rolled
+   ❯ terraform apply
+   ❯ kubectl version
+   ```
+   Repeat until the target version. Each apply also updates the node pool's
+   version and image, which only applies to nodes created afterwards.
+
+2. Roll the nodes, one at a time:
+   ```
+   # instance OCID per node IP
+   ❯ oci ce node-pool get --node-pool-id $(terraform output -raw node_pool_id) \
+       | jq -r '.data.nodes[] | "\(."private-ip")  \(.id)"'
+
+   ❯ kubectl drain <node-ip> --ignore-daemonsets --delete-emptydir-data
+   # the node pool launches a replacement
+   ❯ oci compute instance terminate --force --instance-id <instance-ocid>
+   ```
+   Before rolling the next node, wait until:
+   * the new node is `Ready` on the new version (`kubectl get nodes -o wide`)
+   * Longhorn accepts it: `kubectl -n longhorn get nodes.longhorn.io` shows
+     `READY=True` and `SCHEDULABLE=True`. If not, `kubectl -n longhorn describe
+     nodes.longhorn.io <node-ip>` names what's missing (iSCSI, and NFS for RWX
+     volumes); install it via [node-pool-init.sh](terraform/infra/files/node-pool-init.sh)
+   * all volumes are `healthy` again (`kubectl -n longhorn get volumes.longhorn.io -w`)
+
+   Then delete the old node's entry in the Longhorn UI (Nodes).
+
+   The drain can take a moment: Longhorn's `instance-manager` PDBs block
+   eviction until the other node has a healthy replica of every volume
+   (`node-drain-policy: block-if-contains-last-replica`).
+
+## Recreate the cluster
+Commands in `terraform/infra` unless stated otherwise.
+
+1. Release the load balancer while the cluster still exists. Deleting an OKE
+   cluster doesn't delete the LBs it created, and the free tier has room for one:
+   ```
+   ❯ flux suspend kustomization --all
+   ❯ kubectl -n envoy-gateway delete gateway envoy
+   # wait until empty
+   ❯ oci lb load-balancer list --compartment-id <tenancy-ocid>
+   ```
+2. Let the nodes drain. Deleting the node pool cordons and drains both nodes
+   at once, so Longhorn's PDBs (and the Bagisto Redis one) block it, and OKE
+   gives up or forces termination only after a 60min grace period:
+   ```
+   ❯ kubectl -n longhorn patch settings.longhorn.io node-drain-policy --type=merge -p '{"value":"always-allow"}'
+   ❯ kubectl -n bagisto delete pdb bagisto-redis-master
+   ❯ kubectl get pdb -A   # expect none
+   ```
+3. Destroy only the cluster. Its dependents are the node pool and the local
+   kubeconfig file; the Vault, its key and the network stay:
+   ```
+   # expect exactly 3 to destroy: cluster, node_pool, local_file.kube_config
+   ❯ terraform plan -destroy -target=oci_containerengine_cluster.k8s_cluster -out=destroy.tfplan
+   ❯ terraform apply destroy.tfplan
+   ```
+   Node pool deletion takes ~15min, cluster deletion from a few minutes up to
+   over an hour.
+4. Create the new cluster at the target version:
+   ```
+   ❯ sed -i '' 's/default = "v1.34.1"/default = "v1.37.0"/' _variables.tf
+   # expect: cluster, node_pool, local_file.kube_config created
+   ❯ terraform plan -out=create.tfplan
+   ❯ terraform apply create.tfplan
+   ```
+   The plan also re-adds the 443 and NodePort rules to the security lists: the
+   cloud controller removed them together with the old LB.
+5. Re-apply the config stack in [terraform/config/](terraform/config). It
+   recreates Flux, the GitHub App secret, the `ClusterSecretStore`, the
+   `oci-lb-sg-id` ConfigMap and the namespaces in the new cluster. Read the
+   plan: anything other than creates for those K8s objects (e.g. a Vault secret
+   being destroyed) needs fixing first.
+   ```
+   ❯ terraform plan
+   ❯ terraform apply
+   ```
+6. Flux bootstraps everything from git. external-dns points the Cloudflare
+   records to the new LB IP and cert-manager re-issues the certificates.
+   The apps with backed-up volumes start empty.
+7. Restore the volumes as described in [docs/backup.md](docs/backup.md#restore).
+8. The new cluster has a new OCID: use `terraform/.kube.config`, or regenerate
+   the local kubeconfig with `oci ce cluster create-kubeconfig --cluster-id <ocid> ...`.
+
+## Upgrade notes per version
 ### OKE Upgrade 1.31.1
 For the current update, i've written above upgrade instructions.
 Worked flawlessly, though still with a bit of manual interaction in the webui...

@@ -10,11 +10,6 @@ variable "region" {
   default = "eu-frankfurt-1"
 }
 
-variable "gh_token" {
-  description = "Github PAT for FluxCD"
-  type        = string
-}
-
 variable "github_app_id" {
   description = "GitHub App ID"
   type        = string

@@ -1,8 +1,3 @@
-variable "gh_token" {
-  sensitive = true
-  type      = string
-}
-
 variable "gh_org" {
   type = string
 

@@ -42,6 +42,7 @@ spec:
       repository: docker.io/actualbudget/actual-server
     persistence:
       enabled: true
+      size: 512Mi
     files:
       server: /data/server-files
       user: /data/user-files

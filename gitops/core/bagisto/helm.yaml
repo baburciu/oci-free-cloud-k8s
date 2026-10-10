@@ -38,12 +38,14 @@ spec:
       currency: "RON"
     storage:
       storageClass: longhorn
+      size: 3Gi
       # opt into the Longhorn S3 backup (see gitops/core/longhorn/backup)
       labels:
         recurring-job.longhorn.io/source: enabled
         recurring-job-group.longhorn.io/s3-backup: enabled
     mysqlStandalone:
       persistence:
+        size: 3Gi
         # only applied to newly created PVCs: volumeClaimTemplates are immutable on an existing StatefulSet
         labels:
           recurring-job.longhorn.io/source: enabled

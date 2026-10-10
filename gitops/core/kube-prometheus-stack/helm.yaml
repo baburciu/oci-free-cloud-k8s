@@ -40,7 +40,8 @@ spec:
           matchLabels:
             app.kubernetes.io/component: monitoring
         retention: ""
-        retentionSize: 14GB
+        # keep below the volume size (7Gi) to leave room for the WAL and compaction
+        retentionSize: 6GB
         storageSpec:
           volumeClaimTemplate:
             spec:
@@ -48,7 +49,7 @@ spec:
               accessModes: ["ReadWriteOnce"]
               resources:
                 requests:
-                  storage: 15Gi
+                  storage: 7Gi
     defaultRules:
       create: true
       rules:

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-code
+  labels:
+    app.kubernetes.io/name: claude-code
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: claude-code
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: claude-code
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      containers:
+        - name: claude-code
+          # build at https://github.com/baburciu/claude-code-in-k8s
+          image: docker.io/bogdanadrianburciu/claude-code:2.1.296
+          env:
+            - name: CLAUDE_SESSION_NAME
+              value: oci-k8s
+          volumeMounts:
+            - name: home
+              mountPath: /home/node
+          resources:
+            limits:
+              memory: 4Gi
+            requests:
+              memory: 512Mi
+              cpu: 250m
+      volumes:
+        - name: home
+          persistentVolumeClaim:
+            claimName: claude-home

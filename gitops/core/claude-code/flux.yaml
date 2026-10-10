@@ -1,0 +1,19 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: claude-code
+  namespace: flux-system
+spec:
+  interval: 1h
+  path: ./gitops/core/claude-code
+  prune: true
+  dependsOn:
+    - name: longhorn
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: claude-code
+      namespace: claude-code

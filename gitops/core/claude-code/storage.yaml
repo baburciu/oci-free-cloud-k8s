@@ -1,0 +1,13 @@
+# Holds $HOME: Claude login (~/.claude, ~/.claude.json), git/gh credentials
+# and the workspace. Not in the s3-backup group since it contains credentials.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claude-home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi

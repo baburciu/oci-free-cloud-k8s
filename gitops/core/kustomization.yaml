@@ -24,3 +24,4 @@ resources:
   # - n8n/flux.yaml
   - bagisto/flux.yaml
   - ntfy/flux.yaml
+  - claude-code/flux.yaml

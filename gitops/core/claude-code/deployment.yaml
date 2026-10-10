@@ -24,7 +24,7 @@ spec:
       containers:
         - name: claude-code
           # build at https://github.com/baburciu/claude-code-in-k8s
-          image: docker.io/bogdanadrianburciu/claude-code:2.1.296
+          image: docker.io/bogdanadrianburciu/claude-code:sha-60f514b
           env:
             - name: CLAUDE_SESSION_NAME
               value: oci-k8s

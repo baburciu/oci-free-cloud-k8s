@@ -5,8 +5,6 @@ resources:
   - flux.yaml
   - secret.yaml
   - receiver.yaml
-  - provider.yaml
-  - alert.yaml
   - podmonitor.yaml
   - httproute.yaml
   - securitypolicy.yaml

@@ -54,7 +54,6 @@ This repo hosts my personal stuff and is a playground for my kubernetes tooling.
 - [x] FluxCD for Gitops
   * deployed with the new fluxcd operator
   * github → flux webhook receiver for instant reconciliation
-  * flux → github commit annotation about conciliation status
 - [x] Teleport for k8s cluster access
 - [x] Storage
    * with longhorn
@@ -146,9 +145,6 @@ Most resources and core components of the k8s cluster are provisioned with FluxC
 
 * Flux pulls the repo and Terraform manages the GitHub push webhook (which
   triggers Flux reconciliation after each commit) with the GitHub App below.
-* Flux annotates the GitHub commit status with a fine-grained Personal Access
-  Token (`commit statuses - read, write` on this repo), stored in the OCI Vault
-  as `github-fluxcd-token`.
 
 ### Flux Operator
 Flux Operator and its `FluxInstace` CR is instantiated from [Terraform](terraform/config/modules/fluxcd/flux.tf).
@@ -176,7 +172,6 @@ Vault secrets are:
 | Vault Secret Name | Created by | Purpose |
 |---|---|---|
 | `github-flux-webhook-token` | Terraform ([webhook.tf](terraform/config/modules/fluxcd/webhook.tf))  | Flux webhook validation |
-| `github-fluxcd-token` | Manual | GitHub PAT for Flux notifications |
 | `cloudflare-api-token` | Manual | Cloudflare API token for external-dns |
 | `github-app-client-id` | Manual | GitHub App Client ID |
 | `github-app-client-secret` | Manual | GitHub App Client Secret (generated on the General page) |
@@ -185,7 +180,6 @@ Vault secrets are:
 | `dex-envoy-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Envoy Gateway OIDC client secret |
 | `dex-actualbudget-client-secret` | Terraform ([dex_secrets.tf](terraform/config/modules/external-secrets/dex_secrets.tf)) | Dex→Actual Budget OIDC client secret |
 | `neon-pg-password` | Manual | External PostgreSQL password for n8n |
-| `slack-fluxcd-token` | Manual | Slack webhook URL for Flux alerts |
 | `s3-proxy-user-access_key` | Manual | OCI S3-compatible access key |
 | `s3-proxy-user-secret_key` | Manual | OCI S3-compatible secret key |
 | `ntfy-smtp-sender-pass` | Manual | Yahoo SMTP app password for ntfy email notifications |
@@ -646,3 +640,48 @@ Commands in `terraform/infra` unless stated otherwise.
    (UI or kubectl).
 8. The new cluster has a new OCID: use `terraform/.kube.config`, or regenerate
    the local kubeconfig with `oci ce cluster create-kubeconfig --cluster-id <ocid> ...`.
+
+# Upgrading Longhorn
+Longhorn only upgrades one minor version at a time (e.g. 1.10 → 1.11 → 1.12 → 1.13),
+so bump the chart version in [longhorn/helm.yaml](gitops/core/longhorn/helm.yaml)
+once per minor and let each step finish before the next.
+
+Upgrade with the volumes detached. Each Longhorn version runs its own
+`instance-manager` pod per node, which reserves `guaranteed-instance-manager-cpu`
+(12% of a node, ~220m on these 2-OCPU nodes). A live engine upgrade moves a volume's
+replicas to the new instance manager, but its engine process stays in the old one
+until the volume is detached, so every step leaves one more instance manager per
+node. With the nodes at ~95% CPU requests, the next version's instance manager can't
+be scheduled (`state=error`), and from then on no volume can attach. Detached
+volumes are upgraded offline in seconds and leave a single instance manager per node.
+
+1. Take fresh backups of the volumes that matter ([docs/backup.md](docs/backup.md)).
+2. Stop every workload with a Longhorn volume. Suspend the Kustomizations of plain
+   manifests (e.g. `ntfy`), otherwise Flux scales them back; HelmReleases have no
+   drift correction. Prometheus is scaled through its `Prometheus` resource:
+   ```
+   ❯ flux -n flux-system suspend ks ntfy
+   ❯ kubectl -n ntfy scale deploy/ntfy --replicas=0
+   ❯ kubectl -n actualbudget scale deploy/actualbudget --replicas=0
+   ❯ kubectl -n bagisto scale deploy/bagisto-bagisto sts/bagisto-bagisto-mysql sts/bagisto-redis-master --replicas=0
+   ❯ kubectl -n monitoring patch prometheus kube-prometheus-stack-prometheus --type=merge -p '{"spec":{"replicas":0}}'
+   # wait until every volume is detached
+   ❯ kubectl -n longhorn get volumes.longhorn.io
+   ```
+3. For each minor version: bump the chart, push, and wait until the new engine image
+   is `deployed`, only the new instance managers are left, and every volume's
+   `status.currentImage` is the new engine (`concurrentAutomaticEngineUpgradePerNodeLimit: 1`
+   upgrades detached volumes automatically):
+   ```
+   ❯ kubectl -n longhorn get engineimages.longhorn.io,instancemanagers.longhorn.io
+   ❯ kubectl -n longhorn get volumes.longhorn.io -o custom-columns=NAME:.metadata.name,STATE:.status.state,ENGINE:.status.currentImage
+   ```
+   A `faulted` volume is skipped by the automatic upgrade; set its `spec.image` to
+   the new engine image by hand while it's detached.
+4. Start the workloads again (MySQL and Redis before Bagisto), resume the suspended
+   Kustomizations and check that all volumes are `attached`/`healthy`.
+5. Delete the engine images no volume uses any more (`REFCOUNT 0`):
+   `kubectl -n longhorn delete engineimages.longhorn.io <name>`.
+
+Flux's dry-run of the `longhorn-backup` RecurringJob can fail while Longhorn's
+admission webhook restarts during the upgrade; it passes on the next reconcile.

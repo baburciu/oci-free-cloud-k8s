@@ -1,0 +1,15 @@
+# Backs up to the S3 backup target only the volumes whose PVC carries:
+#   recurring-job.longhorn.io/source: enabled
+#   recurring-job-group.longhorn.io/s3-backup: enabled
+# Not in the "default" group, which Longhorn applies to every unlabelled volume.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: daily-s3-backup
+spec:
+  task: backup
+  cron: "0 3 * * *"
+  retain: 2
+  concurrency: 1
+  groups:
+    - s3-backup

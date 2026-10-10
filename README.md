@@ -58,6 +58,7 @@ This repo hosts my personal stuff and is a playground for my kubernetes tooling.
 - [x] Teleport for k8s cluster access
 - [x] Storage
    * with longhorn
+   * daily backups of selected volumes to OCI Object Storage ([docs/backup.md](docs/backup.md))
 - [x] Grafana with Dex Login
    * Dashboards for Flux
    * [ ] Switch to Grafana Operator
@@ -197,6 +198,7 @@ Vault secrets are:
 | `teleport-github-client-secret` | Manual | GitHub OAuth for Teleport SSO |
 | `actualbudget-server-password` | Manual | Actual Budget server password for API access (see note below) |
 | `actualbudget-sync-id` | Manual | Actual Budget file Sync ID (Settings → Show advanced settings → Sync ID) |
+| `longhorn-backup-s3` | Terraform ([longhorn-backup](terraform/config/modules/longhorn-backup/vault_secret.tf)) | JSON with S3-compatible key pair, endpoint and target URL of the `longhorn-backups` bucket, for Longhorn backups |
 
 > [!NOTE]
 > **Actual Budget Schedule Notifier**: The `actualbudget-server-password` is the **server password** set during
@@ -439,6 +441,12 @@ which is used to feed the value to a [helm chart deploying the `EnvoyProxy` CR](
 
 [gatewayapi]: https://gateway-api.sigs.k8s.io/
 [envoy-gateway]: https://gateway.envoyproxy.io/
+
+## Backups
+Longhorn backs up the Actual Budget and Bagisto (storage + MySQL) volumes every
+night to the `longhorn-backups` OCI Object Storage bucket. The bucket, its
+credentials and the Vault secret are created by Terraform; volumes opt in via
+PVC labels. Setup, manual backup and restore steps are in [docs/backup.md](docs/backup.md).
 
 ## Monitoring
 

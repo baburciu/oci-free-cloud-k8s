@@ -29,3 +29,10 @@ module "grafana" {
 
   compartment_id = var.compartment_id
 }
+
+module "longhorn_backup" {
+  source = "./modules/longhorn-backup"
+
+  compartment_id = var.compartment_id
+  region         = var.region
+}

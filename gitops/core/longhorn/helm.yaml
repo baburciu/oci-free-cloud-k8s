@@ -27,7 +27,19 @@ spec:
       imageRegistry: docker.io
     defaultSettings:
       storageMinimalAvailablePercentage: 10
+    defaultBackupStore:
+      # backupTarget comes from valuesFrom above
+      backupTargetCredentialSecret: longhorn-backup-s3
+      pollInterval: 3600
     persistence:
       defaultClassReplicaCount: 2
     ingress:
       enabled: false
+  # optional so a missing Vault secret never blocks installing the storage layer;
+  # the backup target is set on the next reconcile once the Secret exists
+  valuesFrom:
+    - kind: Secret
+      name: longhorn-backup-s3
+      valuesKey: BACKUP_TARGET
+      targetPath: defaultBackupStore.backupTarget
+      optional: true

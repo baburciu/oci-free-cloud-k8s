@@ -9,6 +9,7 @@ resources:
   - dex/flux.yaml
   - grafana/flux.yaml
   - longhorn/flux.yaml
+  - longhorn/backup/flux.yaml
   # - lychee/flux.yaml
   - kube-prometheus-stack/flux.yaml
   # we don't deploy Teleport yet, will consider Tailscale

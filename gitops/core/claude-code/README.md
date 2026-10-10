@@ -13,7 +13,8 @@ Until then the pod is Running and logs a reminder every 30s.
 kubectl exec -it deployment/claude-code -n claude-code -- claude auth login
 # Trust the workspace folder: accept the prompt, then /exit
 kubectl exec -it deployment/claude-code -n claude-code -- bash -c 'cd ~/workspace && claude'
-kubectl logs -f deployment/claude-code -n claude-code
+# Answer "y" to "Enable Remote Control?", then detach with Ctrl-P Ctrl-Q (not Ctrl-C)
+kubectl attach -it deployment/claude-code -n claude-code
 ```
 
 ## Upgrading

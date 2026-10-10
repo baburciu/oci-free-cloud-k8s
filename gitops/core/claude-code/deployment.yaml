@@ -25,6 +25,10 @@ spec:
         - name: claude-code
           # build at https://github.com/baburciu/claude-code-in-k8s
           image: docker.io/bogdanadrianburciu/claude-code:sha-60f514b
+          # remote-control is an interactive TUI: it asks once to enable
+          # Remote Control and exits without a TTY. Answer via kubectl attach.
+          stdin: true
+          tty: true
           env:
             - name: CLAUDE_SESSION_NAME
               value: oci-k8s

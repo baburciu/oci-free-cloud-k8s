@@ -23,43 +23,7 @@ spec:
         name: envoyproxy
       interval: 5m
   releaseName: envoy-gateway
-  dependsOn:
-    - name: envoy-gateway-crds
   values:
-    # Gateway API CRDs come from gitops/core/gatewayapi-crds, Envoy Gateway CRDs from envoy-gateway-crds
+    # Gateway API CRDs come from gitops/core/gatewayapi-crds, Envoy Gateway CRDs from gitops/core/envoy-gateway-crds
     crds:
       enabled: false
----
-# Envoy Gateway CRDs only; Gateway API CRDs (and their safe-upgrades policy) are owned by gitops/core/gatewayapi-crds
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: envoy-gateway-crds
-spec:
-  interval: 1h
-  timeout: 5m
-  chart:
-    spec:
-      chart: gateway-crds-helm
-      version: "1.9.2"
-      sourceRef:
-        kind: HelmRepository
-        name: envoyproxy
-      interval: 5m
-  releaseName: envoy-gateway-crds
-  values:
-    crds:
-      gatewayAPI:
-        enabled: false
-      envoyGateway:
-        enabled: true
-  # never delete the CRDs (and with them every SecurityPolicy/EnvoyProxy) if this release is removed
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: CustomResourceDefinition
-            patch: |
-              - op: add
-                path: /metadata/annotations/helm.sh~1resource-policy
-                value: keep

@@ -1,0 +1,31 @@
+# Envoy Gateway CRDs as plain manifests. They don't fit in a Helm release: the
+# release Secret of gateway-crds-helm exceeds the 1MiB Secret size limit.
+# Gateway API CRDs are owned by gitops/core/gatewayapi-crds.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: envoy-gateway
+  namespace: flux-system
+spec:
+  interval: 1h
+  ref:
+    # keep in sync with the gateway-helm version in gitops/core/envoy-gateway/helm.yaml
+    tag: v1.9.2
+  url: https://github.com/envoyproxy/gateway
+  ignore: |
+    /*
+    !/charts/gateway-helm/charts/crds/crds/generated/
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: envoy-gateway-crds
+  namespace: flux-system
+spec:
+  interval: 1h
+  path: ./charts/gateway-helm/charts/crds/crds/generated
+  # never delete the CRDs (and with them every SecurityPolicy/EnvoyProxy) on a path or tag change
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: envoy-gateway

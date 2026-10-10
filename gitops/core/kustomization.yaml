@@ -18,6 +18,7 @@ resources:
   - fluxcd-addons/flux.yaml
   # - s3-proxy/flux.yaml
   - gatewayapi-crds/flux.yaml
+  - envoy-gateway-crds/flux.yaml
   - envoy-gateway/flux.yaml
   - envoyproxy/flux.yaml
   - actualbudget/flux.yaml

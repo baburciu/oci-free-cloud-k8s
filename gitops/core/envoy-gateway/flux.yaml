@@ -9,6 +9,7 @@ spec:
   prune: true
   dependsOn:
     - name: gatewayapi-crds
+    - name: envoy-gateway-crds
   sourceRef:
     kind: GitRepository
     name: flux-system
